@@ -733,9 +733,28 @@ contains
       !  Implicit vertical solve for momentum
       !
       call mpas_timer_start('vmix solve momentum', .false.)
+<<<<<<< HEAD
       if (.not. (config_Rayleigh_friction .or. &
                  config_Rayleigh_bottom_friction .or. &
                  config_Rayleigh_damping_depth_variable)) then
+=======
+      if (config_use_implicit_bottom_drag_variable) then
+        call ocn_vel_vmix_tend_implicit_spatially_variable(meshPool, bottomDrag, dt, kineticEnergyCell, &
+          vertViscTopOfEdge, layerThickness, layerThickEdge, normalVelocity, err)
+      else if (config_use_implicit_bottom_drag_variable_mannings.or. &
+               config_use_implicit_bottom_roughness) then
+        ! update bottomDrag via Cd=g*n^2*h^(-1/3)
+        call ocn_vel_vmix_tend_implicit_spatially_variable_mannings(meshPool, forcingPool, bottomDrag, &
+          dt, kineticEnergyCell, &
+          vertViscTopOfEdge, layerThickness, layerThickEdge, normalVelocity, &
+          ssh, bottomDepth, err)
+      else if (config_Rayleigh_friction.or. &
+               config_Rayleigh_bottom_friction.or. &
+               config_Rayleigh_damping_depth_variable) then
+        call ocn_vel_vmix_tend_implicit_rayleigh(meshPool, dt, kineticEnergyCell, &
+          vertViscTopOfEdge, layerThickness, layerThickEdge, normalVelocity, err)
+      else
+>>>>>>> 217a69c73... add bottom drag to topo drag (and fixing tidal potential forcing, and compilation bug)
         call ocn_vel_vmix_tend_implicit(meshPool, dt, kineticEnergyCell, &
           vertViscTopOfEdge, layerThickness, layerThicknessEdge, normalVelocity, err)
       else

@@ -223,7 +223,6 @@ contains
       integer :: iCell,iCon
       real (kind=RKIND) :: lat
 
-
       err = 0
 
       call mpas_pool_get_config(ocnConfigs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
