@@ -13,11 +13,11 @@ matplotlib.use('Agg')
 parser = ap.ArgumentParser(description='Python script to build spatial mesh \
                                         for test case 5 from Williamson et al.')
 
-parser.add_argument('-o', '--output-file', dest='output_file', type=str, \
-                    default='base_mesh.nc', \
+parser.add_argument('-o', '--output-file', dest='output_file', type=str,
+                    default='base_mesh.nc',
                     help='Name for output file. Default is `base_mesh.nc`.')
 
-parser.add_argument('-p', '--plots', dest='plots', action="store_true", \
+parser.add_argument('-p', '--plots', dest='plots', action="store_true",
                     help='Produce plots of the mesh using matplotlib.')
 
 args = parser.parse_args()
@@ -80,19 +80,19 @@ def cellWidthVsLatLon():
     lonGrid, latGrid = np.meshgrid(np.deg2rad(lon), np.deg2rad(lat))
 
     # Halversine formula for distance
-    distance =  np.sin((latGrid - latCenter) * 0.5) ** 2 \
-                + (np.cos(latCenter)*np.cos(latGrid) \
-                * np.sin((lonGrid - lonCenter) * 0.5) ** 2)
-    distance = 2.0 * earthRadius \
-               * np.arctan2(np.sqrt(distance), np.sqrt(1.0 - distance)) 
+    distance =  ( np.sin((latGrid - latCenter) * 0.5) ** 2
+                + (np.cos(latCenter)*np.cos(latGrid)
+                * np.sin((lonGrid - lonCenter) * 0.5) ** 2) )
+    distance = ( 2.0 * earthRadius
+               * np.arctan2(np.sqrt(distance), np.sqrt(1.0 - distance)) )
 
     tanhDistance = np.tanh((fineRadius-distance) / transitionWidth)
      
-    cellWidth = coarseResolution + (fineResolution - coarseResolution) \
-                * tanhDistance
+    cellWidth = ( coarseResolution + (fineResolution - coarseResolution)
+                * tanhDistance )
 
     if args.plots:
-        varList = ['latGrid', 'lonGrid', 'distance', 'tanhDistance', \
+        varList = ['latGrid', 'lonGrid', 'distance', 'tanhDistance',
                    'cellWidth']
         fig = plt.gcf()
         plt.clf()
