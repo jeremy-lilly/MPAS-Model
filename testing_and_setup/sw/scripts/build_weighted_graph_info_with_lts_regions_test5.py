@@ -30,6 +30,11 @@ parser.add_argument('-g', '--graph-info', dest='graph_info',
         help='The graph.info file corresponding to the base \
                 mesh. Default is `graph.info`.')
 
+parser.add_argument('-c', '--coarse-region-dist', 
+        dest='coarse_region_dist', default=0.55,
+        help='Cells more than this distance way from the mountain at \
+                the north pole will be part of the coarse region.')
+
 parser.add_argument('--lts2', action='store_true',
         help='Prepare the mesh for LTS2 rather than LTS3 which is the \
                 default.')
@@ -37,7 +42,7 @@ parser.add_argument('--lts2', action='store_true',
 args = parser.parse_args()
 
 
-def main(base_mesh, graph_info, lts2):
+def main(base_mesh, graph_info, coarse_region_dist, lts2):
     timeStart = time.time()
 
     ds = xr.open_dataset(base_mesh)
@@ -79,7 +84,7 @@ def main(base_mesh, graph_info, lts2):
         sphereDistance = 2 * np.arcsin(arg1)
 
         #CAREFUL: THIS HAS TO MATCH WHAT'S ON `src/core_sw/mpas_sw_test_cases.F` 
-        if sphereDistance > 0.55: 
+        if sphereDistance > coarse_region_dist: 
             LTSRegion[iCell] = 2
             LTSRegionLocal[iCell] = 2
 
@@ -214,5 +219,5 @@ def main(base_mesh, graph_info, lts2):
 
 if __name__ == '__main__':
     # If called as a primary module, run main
-    main(args.base_mesh, args.graph_info, args.lts2)
+    main(args.base_mesh, args.graph_info, args.coarse_region_dist, args.lts2)
 
