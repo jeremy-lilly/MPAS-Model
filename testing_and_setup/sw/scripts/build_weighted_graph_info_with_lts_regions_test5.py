@@ -127,48 +127,50 @@ def main():
                             LTSRegionLocal[cell2] = ( LTSRegionLocal[cell2] 
                                 +  2 * (iHalo + 2) )
 
-                        if moreCellsOnInterface == 1:
-                            # this means we are using LTS2
-                            if (nLTSHalos == 1): 
-                                for iCell in range(0, nCells):
-                                    
-                                    # if it's odd and not 1 (fine) then must
-                                    # be 3 (interface layer 1)
-                                    if ( (LTSRegionLocal[iCell] % 2 == 1) 
-                                            and (LTSRegionLocal[iCell] != 1) ):
-                                        LTSRegionLocal[iCell] = 3
-                                    
-                                    # if it's even and not 2 (coarse) then 
-                                    # must be 4 (interface layer 2)
-                                    elif ( (LTSRegionLocal[iCell] % 2 == 0) 
-                                            and (LTSRegionLocal[iCell] != 2) ): 
-                                        LTSRegionLocal[iCell] = 4
-                            # this means we are using LTS3
-                            elif (nLTSHalos == 3): 
-                                for iCell in range(0,nCells) :
-                                    if( (LTSRegionLocal[iCell] % 2 == 1) 
-                                            and (LTSRegionLocal[iCell] != 1) ):
-                                        # if we are here it could be either 
-                                        # interface 1 or those two layers of 
-                                        # fine we need for the third order
-                                        if ( LTSRegionLocal[iCell] 
-                                                == 2 * nLTSHalosCopy + 1 ):
-                                            LTSRegionLocal[iCell] = 7
-                                        elif ( LTSRegionLocal[iCell] 
-                                                == 2 * nLTSHalosCopy - 1 ):
-                                            LTSRegionLocal[iCell] = 5 
-                                        else:
-                                            LTSRegionLocal[iCell] = 3 
-                elif ( (LTSRegionLocal[iCell] % 2 == 0) 
-                        and (LTSRegionLocal[iCell] != 2) ):
-                    # if we are here it could be either interface 2 
-                    # or those two layers of coarse
-                    if (LTSRegionLocal[iCell] == 2 * nLTSHalosCopy + 2):
-                        LTSRegionLocal[iCell] = 8 
-                    elif (LTSRegionLocal[iCell] == 2 * nLTSHalosCopy):
-                        LTSRegionLocal[iCell] = 6 
-                    else :
-                        LTSRegionLocal[iCell] = 4 
+        if moreCellsOnInterface == 1:
+            # this means we are using LTS2
+            if (nLTSHalos == 1): 
+                for iCell in range(0, nCells):
+                    
+                    # if it's odd and not 1 (fine) then must
+                    # be 3 (interface layer 1)
+                    if ( (LTSRegionLocal[iCell] % 2 == 1) 
+                            and (LTSRegionLocal[iCell] != 1) ):
+                        LTSRegionLocal[iCell] = 3
+                    
+                    # if it's even and not 2 (coarse) then 
+                    # must be 4 (interface layer 2)
+                    elif ( (LTSRegionLocal[iCell] % 2 == 0) 
+                            and (LTSRegionLocal[iCell] != 2) ): 
+                        LTSRegionLocal[iCell] = 4
+            
+            # this means we are using LTS3
+            elif (nLTSHalos == 3): 
+                for iCell in range(0, nCells) :
+                    if( (LTSRegionLocal[iCell] % 2 == 1) 
+                            and (LTSRegionLocal[iCell] != 1) ):
+                        # if we are here it could be either 
+                        # interface 1 or those two layers of 
+                        # fine we need for the third order
+                        if ( LTSRegionLocal[iCell] 
+                                == 2 * nLTSHalosCopy + 1 ):
+                            LTSRegionLocal[iCell] = 7
+                        elif ( LTSRegionLocal[iCell] 
+                                == 2 * nLTSHalosCopy - 1 ):
+                            LTSRegionLocal[iCell] = 5 
+                        else:
+                            LTSRegionLocal[iCell] = 3 
+                    
+                    elif ( (LTSRegionLocal[iCell] % 2 == 0) 
+                            and (LTSRegionLocal[iCell] != 2) ):
+                        # if we are here it could be either interface 2 
+                        # or those two layers of coarse
+                        if (LTSRegionLocal[iCell] == 2 * nLTSHalosCopy + 2):
+                            LTSRegionLocal[iCell] = 8 
+                        elif (LTSRegionLocal[iCell] == 2 * nLTSHalosCopy):
+                            LTSRegionLocal[iCell] = 6 
+                        else :
+                            LTSRegionLocal[iCell] = 4 
 
     fineCells = 0
     coarseCells = 0
