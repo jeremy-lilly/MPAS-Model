@@ -687,8 +687,8 @@ call mpas_timer_stop("init LTS")
    type (block_type), pointer :: block
    type (mpas_pool_type), pointer :: statePool, meshPool, tendPool, LTSPool
    integer, dimension(:), allocatable :: isLTSRegionEdgeAssigned
-   integer :: i, iCell, iEdge, iVertex, iRegion, iHalo, iHaloP1, iCellHalo, cell1, cell2, nLTSHalosCopy, haveFineCounter, haveCoarseCounter, moreCellsOnInterface
-   integer, pointer :: nLTSHalos, nCells, nCellsSolve, nEdges, nEdgesSolve, haveFine, haveCoarse, haveInterface, doExtraLayers
+   integer :: i, iCell, iEdge, iVertex, iRegion, iHalo, iHaloP1, iCellHalo, cell1, cell2, nLTSHalosCopy, haveFineCounter, haveCoarseCounter
+   integer, pointer :: nLTSHalos, nCells, nCellsSolve, nEdges, nEdgesSolve, haveFine, haveCoarse, haveInterface, doExtraLayers, nLTSHalosPExtra, moreCellsOnInterface
    real (kind=RKIND), dimension(:), pointer :: latCell, lonCell, areaCell
    integer, dimension(:), pointer :: LTSRegion, LTSRegionLocal, nEdgesOnCell, minMaxLTSRegion, minMaxAfterHaloUpdate
    integer, dimension(:,:), pointer :: cellsOnEdge,  edgesOnCell, verticesOnCell, nCellsInLTSHalo, nEdgesInLTSHalo
@@ -698,14 +698,16 @@ call mpas_timer_stop("init LTS")
    
    call mpas_pool_get_subpool(domain % blocklist % structs, 'LTS', LTSPool)
    call mpas_pool_get_dimension(LTSPool, 'nLTSHalos', nLTSHalos)
+   call mpas_pool_get_dimension(LTSPool, 'moreCellsOnInterface', moreCellsOnInterface)
+   call mpas_pool_get_dimension(LTSPool, 'nLTSHalosPExtra', nLTSHalosPExtra)
 
    ! set to 1 if need more cells in interface layers (for load balancing)
-   moreCellsOnInterface = 0
+   !moreCellsOnInterface = 0
 
    nLTSHalosCopy = nLTSHalos
    if (moreCellsOnInterface == 1) then
       !nLTSHalosCopy = 78 !for CPU test with multiple interface layers for test 5 (it's 78 for LTS2, 80 for LTS3)
-      nLTSHalosCopy = 40 !for speed up test with multiple interface layers for test 5 (it's 18 (or 38) for LTS2, 20 (or 40) for LTS3)
+      nLTSHalosCopy = nLTSHalosPExtra !for speed up test with multiple interface layers for test 5 (it's 18 (or 38) for LTS2, 20 (or 40) for LTS3)
    end if
 
    !NOTE:
@@ -774,7 +776,7 @@ call mpas_timer_stop("init LTS")
          !if (distLTS > 1.2) then  !this was for the convergence test for test 5
          !if (distLTS > 0.35) then   !this is for the CPU ratio test for test 5
          !if (distLTS > 0.7) then   !this is for the CPU ratio test with multiple interface layers for test 5
-         if (distLTS > 0.2) then   !this is for the speed up test for test 5
+         if (distLTS > 0.55) then   !this is for the speed up test for test 5
          !if (distLTS > 0.55) then   !this is for the speed up test with multiple interface layers for test 5 (this goes with 38 or 40 layers)
          !if (distLTS > 0.3) then   !this is for the speed up test with multiple interface layers for test 5 (this goes with 18 or 20 layers)
             LTSRegion(iCell) = 2
