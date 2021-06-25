@@ -34,15 +34,15 @@ parser.add_argument('-k', '--num-blocks', dest='num_blocks',
 args = parser.parse_args()
 
 
-def main():
+def main(base_mesh, graph_info, num_blocks):
     timeStart = time.time()
 
-    ds = xr.open_dataset(args.base_mesh)
+    ds = xr.open_dataset(base_mesh)
 
     nCells = ds['nCells'].size
     LTSRegionLocal = np.zeros([nCells])
 
-    with open(args.graph_info, 'r') as gi:
+    with open(graph_info, 'r') as gi:
         lines = gi.readlines()
         for iCell in range(1, len(lines)):
             if lines[iCell][0:5] == '0 1 0':
@@ -52,10 +52,10 @@ def main():
             else:
                 LTSRegionLocal[iCell-1] = int(3)  # interface
 
-    numBlocks = args.num_blocks  # usually 3 * NUM_PROCS
+    numBlocks = num_blocks  # usually 3 * NUM_PROCS
 
     newf=""
-    with open(args.graph_info + '.part.' + str(int(numBlocks)), 'r') as f:
+    with open(graph_info + '.part.' + str(int(numBlocks)), 'r') as f:
         lines = f.readlines()
         procFoundCell = [0] * nCells
 
@@ -100,11 +100,11 @@ def main():
         print('if all procCells have been found, these two numbers are equal:',
                 sum(procFoundCell[:]), nCells)
     
-    with open(args.graph_info + '.part.' + str(int(numBlocks)), 'w') as f:
+    with open(graph_info + '.part.' + str(int(numBlocks)), 'w') as f:
         f.write(newf)
 
 
 if __name__ == '__main__':
     # If called as a primary module, run main
-    main()
+    main(args.base_mesh, args.graph_info, args.num_blocks)
 

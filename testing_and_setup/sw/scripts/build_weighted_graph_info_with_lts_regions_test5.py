@@ -37,13 +37,13 @@ parser.add_argument('--lts2', action='store_true',
 args = parser.parse_args()
 
 
-def main():
+def main(base_mesh, graph_info, lts2):
     timeStart = time.time()
 
-    ds = xr.open_dataset(args.base_mesh)
+    ds = xr.open_dataset(base_mesh)
 
     # Set to 1 for LTS2, 3 for LTS3
-    if args.lts2:
+    if lts2:
         nLTSHalos = 1
     else:
         nLTSHalos = 3
@@ -183,7 +183,7 @@ def main():
     coarseCells = 0
     
     newf = ""
-    with open(args.graph_info,'r') as f:
+    with open(graph_info,'r') as f:
         lines = f.readlines()
         newf += lines[0].strip() + " 010 3 \n"
         for iCell in range(1,len(lines)):
@@ -201,7 +201,7 @@ def main():
                 newf+= "0 0 1 " + lines[iCell].strip() + "\n"
                 coarseCells = coarseCells + 1 
         
-    with open(args.graph_info, 'w') as f:
+    with open(graph_info, 'w') as f:
         f.write(newf)
 
     print(fineCells)
@@ -214,5 +214,5 @@ def main():
 
 if __name__ == '__main__':
     # If called as a primary module, run main
-    main()
+    main(args.base_mesh, args.graph_info, args.lts2)
 

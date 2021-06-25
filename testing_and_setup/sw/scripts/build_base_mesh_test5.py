@@ -23,7 +23,7 @@ parser.add_argument('-p', '--plots', dest='plots', action="store_true",
 args = parser.parse_args()
 
 
-def cellWidthVsLatLon():
+def cellWidthVsLatLon(plots):
     """
     Create cell width array for this mesh on a regular latitude-longitude grid.
 
@@ -91,7 +91,7 @@ def cellWidthVsLatLon():
     cellWidth = ( coarseResolution + (fineResolution - coarseResolution)
                 * tanhDistance )
 
-    if args.plots:
+    if plots:
         varList = ['latGrid', 'lonGrid', 'distance', 'tanhDistance',
                    'cellWidth']
         fig = plt.gcf()
@@ -111,17 +111,17 @@ def cellWidthVsLatLon():
     return cellWidth, lon, lat
 
 
-def main():
+def main(output_file, plots):
     """
     Python script to build spatial mesh for test case 5 of Williamson et al.
 
     Run `./build_base_mesh_for_test5.py --help` for usage information.
     """
 
-    cellWidth, lon, lat = cellWidthVsLatLon()
-    build_spherical_mesh(cellWidth, lon, lat, out_filename=args.output_file)
+    cellWidth, lon, lat = cellWidthVsLatLon(plots)
+    build_spherical_mesh(cellWidth, lon, lat, out_filename=output_file)
 
 
 if __name__ == '__main__':
-    main()
+    main(args.output_file, args.plots)
 
