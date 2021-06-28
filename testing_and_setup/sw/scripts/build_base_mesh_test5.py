@@ -10,19 +10,6 @@ import matplotlib
 matplotlib.use('Agg')
 
 
-parser = ap.ArgumentParser(description='Python script to build spatial mesh \
-                                        for test case 5 from Williamson et al.')
-
-parser.add_argument('-o', '--output-file', dest='output_file', type=str,
-                    default='base_mesh.nc',
-                    help='Name for output file. Default is `base_mesh.nc`.')
-
-parser.add_argument('-p', '--plots', dest='plots', action="store_true",
-                    help='Produce plots of the mesh using matplotlib.')
-
-args = parser.parse_args()
-
-
 def cellWidthVsLatLon(plots):
     """
     Create cell width array for this mesh on a regular latitude-longitude grid.
@@ -123,5 +110,20 @@ def main(output_file, plots):
 
 
 if __name__ == '__main__':
+    # If this is the primary module, run main
+
+    parser = ap.ArgumentParser(description='Python script to build spatial mesh \
+                                        for test case 5 from Williamson et al.')
+
+    parser.add_argument('-o', '--output-file', dest='output_file', type=str,
+                    default='base_mesh.nc',
+                    help='Name for output file. Default is `base_mesh.nc`.')
+
+    parser.add_argument('-p', '--plots', dest='plots', action="store_true",
+                    help='Produce plots of the mesh using matplotlib.')
+
+    args = parser.parse_args()
+
+
     main(args.output_file, args.plots)
 

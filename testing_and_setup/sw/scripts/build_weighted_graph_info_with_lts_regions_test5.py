@@ -9,39 +9,6 @@ import math
 import time
 
 
-parser = ap.ArgumentParser(description='Python script to label the cells \
-        from a base mesh for test case 5 from \
-        Williamson et al. for LTS. This script \
-        MODIFIES the graph.info file specified in its \
-        command-line arguments. Note that \
-        before running this script on a base \
-        mesh, one should convert it to a valid \
-        MPAS mesh with `MpasMeshConverter.x \
-        <base_mesh>` -- doing This also produces \
-        a corresponding graph.info file.')
-
-parser.add_argument('-b', '--base-mesh', dest='base_mesh',
-        default='base_mesh.nc',
-        help='File containing the base mesh. Default is \
-                `base_mesh.nc`.')
-
-parser.add_argument('-g', '--graph-info', dest='graph_info',
-        default='graph.info',
-        help='The graph.info file corresponding to the base \
-                mesh. Default is `graph.info`.')
-
-parser.add_argument('-c', '--coarse-region-dist', 
-        dest='coarse_region_dist', default=0.55,
-        help='Cells more than this distance way from the mountain at \
-                the north pole will be part of the coarse region.')
-
-parser.add_argument('--lts2', action='store_true',
-        help='Prepare the mesh for LTS2 rather than LTS3 which is the \
-                default.')
-
-args = parser.parse_args()
-
-
 def main(base_mesh, graph_info, coarse_region_dist, lts2):
     timeStart = time.time()
 
@@ -219,5 +186,40 @@ def main(base_mesh, graph_info, coarse_region_dist, lts2):
 
 if __name__ == '__main__':
     # If called as a primary module, run main
+
+    parser = ap.ArgumentParser(description='Python script to label the cells \
+                               from a base mesh for test case 5 from \
+                               Williamson et al. for LTS. This script \
+                               MODIFIES the graph.info file specified in its \
+                               command-line arguments. Note that \
+                               before running this script on a base \
+                               mesh, one should convert it to a valid \
+                               MPAS mesh with `MpasMeshConverter.x \
+                               <base_mesh>` -- doing This also produces \
+                               a corresponding graph.info file.')
+
+    parser.add_argument('-b', '--base-mesh', dest='base_mesh',
+                        default='base_mesh.nc',
+                        help='File containing the base mesh. Default is \
+                        `base_mesh.nc`.')
+
+    parser.add_argument('-g', '--graph-info', dest='graph_info',
+                        default='graph.info',
+                        help='The graph.info file corresponding to the base \
+                        mesh. Default is `graph.info`.')
+
+    parser.add_argument('-c', '--coarse-region-dist', 
+                        dest='coarse_region_dist', default=0.55,
+                        help='Cells more than this distance way from the \
+                        mountain at the north pole will be part of the coarse \
+                        region.')
+
+    parser.add_argument('--lts2', action='store_true',
+                        help='Prepare the mesh for LTS2 rather than LTS3 which \
+                        is the default.')
+
+    args = parser.parse_args()
+
+
     main(args.base_mesh, args.graph_info, args.coarse_region_dist, args.lts2)
 

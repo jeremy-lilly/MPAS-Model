@@ -9,31 +9,6 @@ import math
 import time
 
 
-parser = argparse.ArgumentParser(description='Python script to repartition an \
-        existing graph.info.part. file so that each block contains only \
-        one type of cell from fine, coarse, and interface. Before running this \
-        script, one must generate a graph.info.part.NUM_BLOCKS file from an \
-        existing graph.info file by running `gpmetis graph.info NUM_BLOCKS`.')
-
-parser.add_argument('-b', '--base-mesh', dest='base_mesh',
-        default='base_mesh.nc',
-        help='File containing the base mesh. Default is `base_mesh.nc`.')
-
-parser.add_argument('-g', '--graph-info', dest='graph_info',
-        default='graph.info',
-        help='graph.info file corresponding to the base mesh. Default is \
-                `graph.info`. The script assumes that the corresponding \
-                .part.NUM_BLOCKS file is in the same directory as this file.')
-
-parser.add_argument('-k', '--num-blocks', dest='num_blocks',
-        default=12,
-        help='Number of blocks to partition for. Usually this is 3 * \
-                NUM_PROCS, where NUM_PROCS is the number of MPI processors \
-                that will be used. Default is 12.')
-
-args = parser.parse_args()
-
-
 def main(base_mesh, graph_info, num_blocks):
     timeStart = time.time()
 
@@ -106,5 +81,36 @@ def main(base_mesh, graph_info, num_blocks):
 
 if __name__ == '__main__':
     # If called as a primary module, run main
+
+    parser = argparse.ArgumentParser(description='Python script to repartition \
+                                     an existing graph.info.part. file so that \
+                                     each block contains only one type of cell \
+                                     from fine, coarse, and interface. Before \
+                                     running this script, one must generate a \
+                                     graph.info.part.NUM_BLOCKS file from an \
+                                     existing graph.info file by running \
+                                     `gpmetis graph.info NUM_BLOCKS`.')
+
+    parser.add_argument('-b', '--base-mesh', dest='base_mesh',
+                        default='base_mesh.nc',
+                        help='File containing the base mesh. Default is \
+                        `base_mesh.nc`.')
+
+    parser.add_argument('-g', '--graph-info', dest='graph_info',
+                        default='graph.info',
+                        help='graph.info file corresponding to the base mesh. \
+                        Default is `graph.info`. The script assumes that the \
+                        corresponding .part.NUM_BLOCKS file is in the same \
+                        directory as this file.')
+
+    parser.add_argument('-k', '--num-blocks', dest='num_blocks',
+                        default=12,
+                        help='Number of blocks to partition for. Usually this \
+                        is 3 * NUM_PROCS, where NUM_PROCS is the number of MPI \
+                        processors that will be used. Default is 12.')
+
+    args = parser.parse_args()
+
+
     main(args.base_mesh, args.graph_info, args.num_blocks)
 
