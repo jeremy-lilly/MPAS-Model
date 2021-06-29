@@ -9,7 +9,7 @@ import math
 import time
 
 
-def main(base_mesh, graph_info, coarse_region_dist, lts2):
+def main(base_mesh, graph_info, num_extra_interface, coarse_region_dist, lts2):
     timeStart = time.time()
 
     ds = xr.open_dataset(base_mesh)
@@ -20,15 +20,16 @@ def main(base_mesh, graph_info, coarse_region_dist, lts2):
     else:
         nLTSHalos = 3
 
-    # THIS FLAG HAS TO BE THE SAME AS THE ONE SET IN 
-    # THE `mpas_init_LTS` ROUTINE in `src/core_sw/mpas_sw_test_cases.F`
-    moreCellsOnInterface = 1
-
+    # THE NUMBER SET HERE IS THE NUMBER OF EXTRA LTS HALO LAYERS 
+    # AND HAS TO BE THE SAME SET IN init_LTS 
+    # For example, if running LTS3 and num_extra_interface == 38,
+    # Then set nLTSHalosCopy = 40 in init_LTS
+    # Also, if num_extra_interface != 0, need to set
+    # moreCellsOnInterface = 1 on init_LTS
+    # We may want to change variable names here and in init LTS for readability
     nLTSHalosCopy = nLTSHalos
-    if moreCellsOnInterface == 1:
-        # THE NUMBER SET HERE IS THE NUMBER OF EXTRA LTS HALO LAYERS 
-        # AND HAS TO BE THE SAME SET IN init_LTS 
-        nLTSHalosCopy = 40 
+    if num_extra_interface != 0:
+        nLTSHalosCopy = (nLTSHalos - 1) + num_extra_interface
 
     nCells = ds['nCells'].size
     nEdges = ds['nEdges'].size
@@ -195,7 +196,7 @@ if __name__ == '__main__':
                                before running this script on a base \
                                mesh, one should convert it to a valid \
                                MPAS mesh with `MpasMeshConverter.x \
-                               <base_mesh>` -- doing This also produces \
+                               <base_mesh>` -- doing this also produces \
                                a corresponding graph.info file.')
 
     parser.add_argument('-b', '--base-mesh', dest='base_mesh',
@@ -208,11 +209,19 @@ if __name__ == '__main__':
                         help='The graph.info file corresponding to the base \
                         mesh. Default is `graph.info`.')
 
+    parser.add_argument('-e', '--num-extra-interface-layers', 
+                        dest='num_extra_interface', default=0, type=int,
+                        help='Number of extra interface layers to add for load \
+                        balancing. Default is 0. NOTE: LTS3 requires that 2 is \
+                        added to this number--THIS IS HANDELED AUTOMATICALLY. \
+                        For example, running LTS3 and setting this flag to 38 \
+                        results in 40 total interface layers for each region.')
+
     parser.add_argument('-c', '--coarse-region-dist', 
-                        dest='coarse_region_dist', default=0.55,
+                        dest='coarse_region_dist', default=0.55, type=float,
                         help='Cells more than this distance way from the \
                         mountain at the north pole will be part of the coarse \
-                        region.')
+                        region. Default is 0.55.')
 
     parser.add_argument('--lts2', action='store_true',
                         help='Prepare the mesh for LTS2 rather than LTS3 which \
@@ -221,5 +230,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    main(args.base_mesh, args.graph_info, args.coarse_region_dist, args.lts2)
+    main(args.base_mesh, args.graph_info, args.num_extra_interface,
+         args.coarse_region_dist, args.lts2)
 
