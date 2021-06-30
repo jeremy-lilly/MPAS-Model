@@ -694,12 +694,14 @@ call mpas_timer_stop("init LTS")
    integer, dimension(:,:), pointer :: cellsOnEdge,  edgesOnCell, verticesOnCell, nCellsInLTSHalo, nEdgesInLTSHalo
    integer, dimension(:,:,:), pointer :: cellsInLTSHalo, edgesInLTSHalo
    integer, dimension(:), pointer :: mpiRankCell, blockPartitionCell
-   real (kind=RKIND) :: latPoint, lonPoint, distLTS
+   real (kind=RKIND) :: latPoint, lonPoint, distLTS, distCoarse
+   real (kind=RKIND), pointer :: coarseRegionDist
    
    call mpas_pool_get_subpool(domain % blocklist % structs, 'LTS', LTSPool)
    call mpas_pool_get_dimension(LTSPool, 'nLTSHalos', nLTSHalos)
    call mpas_pool_get_dimension(LTSPool, 'moreCellsOnInterface', moreCellsOnInterface)
    call mpas_pool_get_dimension(LTSPool, 'nLTSHalosPExtra', nLTSHalosPExtra)
+   call mpas_pool_get_array(LTSPool, 'coarseRegionDist', coarseRegionDist)
 
    ! set to 1 if need more cells in interface layers (for load balancing)
    !moreCellsOnInterface = 0
@@ -776,8 +778,8 @@ call mpas_timer_stop("init LTS")
          !if (distLTS > 1.2) then  !this was for the convergence test for test 5
          !if (distLTS > 0.35) then   !this is for the CPU ratio test for test 5
          !if (distLTS > 0.7) then   !this is for the CPU ratio test with multiple interface layers for test 5
-         if (distLTS > 0.55) then   !this is for the speed up test for test 5
-         !if (distLTS > 0.55) then   !this is for the speed up test with multiple interface layers for test 5 (this goes with 38 or 40 layers)
+         !if (distLTS > 0.2) then   !this is for the speed up test for test 5
+         if (distLTS > coarseRegionDist) then   !this is for the speed up test with multiple interface layers for test 5 (this goes with 38 or 40 layers)
          !if (distLTS > 0.3) then   !this is for the speed up test with multiple interface layers for test 5 (this goes with 18 or 20 layers)
             LTSRegion(iCell) = 2
          end if
