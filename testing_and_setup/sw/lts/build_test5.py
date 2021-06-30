@@ -80,11 +80,6 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
         nLTSHalosCopy = nLTSHalos
         moreCellsOnInterface = 0
 
-    if multiBlocks:
-        numBlocks = 3 * numProcs
-    else:
-        numBlocks = numProcs
-
     if disableOutput:
         modelOutput = 'none'
     else:
@@ -108,6 +103,16 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
             dim.set('definition', str(nLTSHalosCopy))
         elif name == 'nVertLevels':
             dim.set('definition', str(100))  # TODO
+
+    registryVarStructs = registryRoot.findall('var_struct')
+    for vs in registryVarStructs:
+        name = vs.attrib['name']
+        if name == 'LTS':
+            variables = vs.findall('var')
+            for var in variables:
+                name = var.attrib['name']
+                if name == 'coarseRegionDist':
+                    var.set('default_value', str(coarseRegionDist))
 
     registryTree.write(registryXML) 
     print('\n\n\n--- Done\n\n\n')
