@@ -107,7 +107,7 @@ def main(base_mesh, graph_info, num_extra_interface, coarse_region_dist, lts2):
                             LTSRegionLocal[cell2] = ( LTSRegionLocal[cell2] 
                                 +  2 * (iHalo + 2) )
 
-    if moreCellsOnInterface == 1:
+    if num_extra_interface != 0:
         # this means we are using LTS2
         if (nLTSHalos == 1): 
             for iCell in range(0, nCells):
