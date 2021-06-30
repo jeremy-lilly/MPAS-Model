@@ -10,7 +10,7 @@ from build_graph_info_part_for_multi_block_run import main as partition_graph
 
 
 def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
-         numExtraInterface, coarseRegionDist, doLTS2):
+         numExtraInterface, coarseRegionDist, disableOutput, doLTS2):
     
     startingDir = os.getcwd()
     
@@ -20,42 +20,44 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     if modelRepo[-1] != '/':
         modelRepo += '/'
 
+
     # -- BEGIN --
     # mesh generation and MPI partitioning
     
-    #os.chdir(outDir)
+    os.chdir(outDir)
 
-    #print('\n\n\n--- Building base mesh...\n\n\n')
-    #build_base_mesh(baseMesh, True)
-    #print('\n\n\n--- Done\n\n\n')
+    print('\n\n\n--- Building base mesh...\n\n\n')
+    build_base_mesh(baseMesh, True)
+    print('\n\n\n--- Done\n\n\n')
 
-    #print('\n\n\n--- Converting ' + baseMesh + ' to a MPAS mesh...\n\n\n')
-    #shCommand = 'MpasMeshConverter.x ' + baseMesh
-    #sp.call(shCommand.split())
+    print('\n\n\n--- Converting ' + baseMesh + ' to a MPAS mesh...\n\n\n')
+    shCommand = 'MpasMeshConverter.x ' + baseMesh
+    sp.call(shCommand.split())
 
-    #shCommand = 'mv graph.info ' + graphInfo
-    #sp.call(shCommand.split())
-    #print('\n\n\n--- Done\n\n\n')
+    shCommand = 'mv graph.info ' + graphInfo
+    sp.call(shCommand.split())
+    print('\n\n\n--- Done\n\n\n')
 
-    #print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
-    #build_graph(baseMesh, graphInfo, coarseRegionDist, doLTS2)
-    #print('\n\n\n--- Done\n\n\n')
+    print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
+    build_graph(baseMesh, graphInfo, numExtraInterface, coarseRegionDist, doLTS2)
+    print('\n\n\n--- Done\n\n\n')
 
-    #print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
-    #if multiBlocks:
-    #    numBlocks = 3 * numProcs
-    #else:
-    #    numBlocks = numProcs
+    print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
+    if multiBlocks:
+        numBlocks = 3 * numProcs
+    else:
+        numBlocks = numProcs
 
-    #shCommand = 'gpmetis ' + graphInfo + ' ' + str(numBlocks)
-    #sp.call(shCommand.split())
-    #print('\n\n\n--- Done\n\n\n')
+    shCommand = 'gpmetis ' + graphInfo + ' ' + str(numBlocks)
+    sp.call(shCommand.split())
+    print('\n\n\n--- Done\n\n\n')
 
-    #print('\n\n\n--- Resorting cells so that each MPI block only has one \n \
-    #      type of cell--fine, interface, or coarse...\n\n\n')
-    #partition_graph(baseMesh, graphInfo, numBlocks)
-    #print('\n\n\n--- Done\n\n\n')
+    print('\n\n\n--- Resorting cells so that each MPI block only has one \n \
+          type of cell--fine, interface, or coarse...\n\n\n')
+    partition_graph(baseMesh, graphInfo, numBlocks)
+    print('\n\n\n--- Done\n\n\n')
 
+    # mesh generation and MPI partitioning
     # -- END --
 
 
@@ -78,6 +80,16 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
         nLTSHalosCopy = nLTSHalos
         moreCellsOnInterface = 0
 
+    if multiBlocks:
+        numBlocks = 3 * numProcs
+    else:
+        numBlocks = numProcs
+
+    if disableOutput:
+        modelOutput = 'none'
+    else:
+        modelOutput = 'output'
+
 
     print('\n\n\n--- Editing Registry.xml...\n\n\n')
     registryXML = modelRepo + 'src/core_sw/Registry.xml'
@@ -94,6 +106,8 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
             dim.set('definition', str(moreCellsOnInterface))
         elif name == 'nLTSHalosPExtra':
             dim.set('definition', str(nLTSHalosCopy))
+        elif name == 'nVertLevels':
+            dim.set('definition', str(100))  # TODO
 
     registryTree.write(registryXML) 
     print('\n\n\n--- Done\n\n\n')
@@ -102,7 +116,7 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     shCommand = 'make clean CORE=sw'
     sp.call(shCommand.split())
 
-    shCommand = 'make gfortran CORE=sw DEBUG=true'
+    shCommand = 'make gfortran CORE=sw DEBUG=false'
     sp.call(shCommand.split())
 
     shCommand = 'cp sw_model ' + outDir + model
@@ -115,9 +129,62 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
 
     os.chdir(outDir)
 
-    # change fields of namelist and streams here
+    # config namelist
+    newTxt = ''
+    with open('namelist.sw', 'r') as namelistFile:
+        namelistTxt = namelistFile.read()
+
+        for line in namelistTxt.split('\n'):
+            words = line.split()
+            if 'config_time_integration' in words:
+                words[-1] = "'" + LTSX + "'"
+                newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_dt' in words:
+                words[-1] = str(200)  # TODO
+                newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_run_duration' in words:
+                words[-1] = "'" + '00:30:00' + "'"  # TODO
+                newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_block_decomp_file_prefix' in words:
+                words[-1] = "'" + graphInfo + '.part.' + "'"
+                newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_number_of_blocks' in words:
+                words[-1] = str(numBlocks)
+                newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_proc_decomp_file_prefix' in words:
+                words[-1] = "'" + graphInfo + '.part.' + "'"
+                newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_use_local_time_stepping' in words:
+                words[-1] = 'true'
+                newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_dt_scaling_LTS' in words:
+                words[-1] = str(25)  # TODO this is our M
+                newTxt += '    ' + ' '.join(words) + '\n'
+            else:
+                newTxt += line + '\n'
+
+    with open('namelist.sw', 'w') as namelistFile:
+        namelistFile.write(newTxt)
+
+    # config streams.sw
+    streamsXML = 'streams.sw'
+
+    streamsTree = et.parse(streamsXML)
+    streamsRoot = streamsTree.getroot()
+
+    for element in streamsRoot:
+        name = element.attrib['name']
+        if name == 'input':
+            element.set('filename_template', baseMesh)
+        elif name == 'output':
+            element.set('type', modelOutput)
+            element.set('clobber_mode', 'truncate')
+            element.set('output_interval', '00:30:00')  # TODO
+    
+    streamsTree.write(streamsXML) 
     print('\n\n\n--- Done\n\n\n')
 
+    # model config and build
     # -- END --
 
 
@@ -180,13 +247,20 @@ if __name__ == '__main__':
                         mountain at the north pole will be part of the coarse \
                         region. Default is 0.55.')
 
+    parser.add_argument('-d', '--disable-output', dest='disable_output',
+                        action='store_true',
+                        help='Configure `streams.sw` to forgo producing \
+                        visualization output.')
+
     parser.add_argument('--lts2', dest='do_lts2', action='store_true',
                         help='Prepare the mesh for LTS2 rather than LTS3 which \
                         is the default.')
 
     args = parser.parse_args()
 
+
     main(args.out_dir, args.model_repo, args.base_mesh, args.graph_info, 
          args.model, args.num_procs, args.multi_blocks, 
-         args.num_extra_interface, args.coarse_region_dist, args.do_lts2)
+         args.num_extra_interface, args.coarse_region_dist, 
+         args.disable_output, args.do_lts2)
 
