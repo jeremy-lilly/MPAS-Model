@@ -10,7 +10,8 @@ from build_graph_info_part_for_multi_block_run import main as partition_graph
 
 
 def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
-         numInterface, coarseRegionDist, disableOutput, doLTS2):
+         numInterface, coarseRegionDist, coarseDT, fineM, disableOutput, 
+         doLTS2):
     
     startingDir = os.getcwd()
     
@@ -148,7 +149,7 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
                 words[-1] = "'" + LTSX + "'"
                 newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_dt' in words:
-                words[-1] = str(200)  # TODO
+                words[-1] = str(coarseDT)
                 newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_run_duration' in words:
                 words[-1] = "'" + '00:30:00' + "'"  # TODO
@@ -166,7 +167,7 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
                 words[-1] = 'true'
                 newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_dt_scaling_LTS' in words:
-                words[-1] = str(25)  # TODO this is our M
+                words[-1] = str(fineM)
                 newTxt += '    ' + ' '.join(words) + '\n'
             else:
                 newTxt += line + '\n'
@@ -280,6 +281,16 @@ if __name__ == '__main__':
                         mountain at the north pole will be part of the coarse \
                         region. Default is 0.55.')
 
+    parser.add_argument('-d', '--coarse-dt', dest='coarse_dt', default=200,
+                        type=float,
+                        help='Time-step to use on the coarse cells. Default is \
+                        200 seconds.')
+
+    parser.add_argument('-M', '--fine-dt-factor', dest='fine_M', default=25,
+                       type=int,
+                       help='The factor M so that fine_dt = coarse_dt / M. \
+                       Default is 25.')
+
     parser.add_argument('-d', '--disable-output', dest='disable_output',
                         action='store_true',
                         help='Configure `streams.sw` to forgo producing \
@@ -294,6 +305,6 @@ if __name__ == '__main__':
 
     main(args.out_dir, args.model_repo, args.base_mesh, args.graph_info, 
          args.model, args.num_procs, args.multi_blocks, 
-         args.num_interface, args.coarse_region_dist, 
-         args.disable_output, args.do_lts2)
+         args.num_interface, args.coarse_region_dist, args.coarse_dt, 
+         args.fine_M, args.disable_output, args.do_lts2)
 
