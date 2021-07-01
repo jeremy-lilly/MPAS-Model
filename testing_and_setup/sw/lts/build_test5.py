@@ -197,8 +197,8 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
 
 
     # Write chosen parameters to a text file for later reference
-    paraTxt = 'Parameter list for a test case 5 from Williamson et al. \
-               for LTS.\n\n'
+    paraTxt = 'Parameter list for test case 5 from Williamson et al. for LTS.'
+    paraTxt += '\n\n'
 
     paraTxt += 'outDir = ' + outDir + '\n'
     paraTxt += 'modelRepo = ' + modelRepo + '\n'
