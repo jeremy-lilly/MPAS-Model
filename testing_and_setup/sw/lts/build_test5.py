@@ -196,6 +196,31 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     # -- END --
 
 
+    # Write chosen parameters to a text file for later reference
+    paraTxt = 'Parameter list for a test case 5 from Williamson et al. \
+               for LTS.\n\n'
+
+    paraTxt += 'outDir = ' + outDir + '\n'
+    paraTxt += 'modelRepo = ' + modelRepo + '\n'
+    paraTxt += 'baseMesh = ' + baseMesh + '\n'
+    paraTxt += 'graphInfo = ' + graphInfo + '\n'
+    paraTxt += 'model = ' + model + '\n'
+    paraTxt += 'numProcs = ' + str(numProcs) + '\n'
+    paraTxt += 'multiBlocks = ' + str(multiBlocks) + '\n'
+    paraTxt += 'numBlocks = ' + str(numBlocks) + '\n'
+    paraTxt += 'numExtraInterface = ' + str(numExtraInterface) + '\n'
+    paraTxt += 'coarseRegionDist = ' + str(0.55) + '\n'
+    paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
+    paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
+
+    paraTxt += '\nThis test case should be run from ' + outDir + ' with:\n'
+    paraTxt += ('    mpirun -n ' + str(numProcs) + ' ' + str(model) + ' '
+                + 'namelist.sw streams.sw\n')
+
+    with open('parameterList.txt', 'w') as f:
+        f.write(paraTxt)
+
+
 # END main
 
 
