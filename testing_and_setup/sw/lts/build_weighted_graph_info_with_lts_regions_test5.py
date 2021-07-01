@@ -9,7 +9,7 @@ import math
 import time
 
 
-def main(base_mesh, graph_info, num_extra_interface, coarse_region_dist, lts2):
+def main(base_mesh, graph_info, num_interface, coarse_region_dist, lts2):
     timeStart = time.time()
 
     ds = xr.open_dataset(base_mesh)
@@ -22,14 +22,14 @@ def main(base_mesh, graph_info, num_extra_interface, coarse_region_dist, lts2):
 
     # THE NUMBER SET HERE IS THE NUMBER OF EXTRA LTS HALO LAYERS 
     # AND HAS TO BE THE SAME SET IN init_LTS 
-    # For example, if running LTS3 and num_extra_interface == 38,
+    # For example, if running LTS3 and num_interface == 38,
     # Then set nLTSHalosCopy = 40 in init_LTS
-    # Also, if num_extra_interface != 0, need to set
+    # Also, if num_interface != 0, need to set
     # moreCellsOnInterface = 1 on init_LTS
     # We may want to change variable names here and in init LTS for readability
     nLTSHalosCopy = nLTSHalos
-    if num_extra_interface != 0:
-        nLTSHalosCopy = (nLTSHalos - 1) + num_extra_interface
+    if num_interface != 1:
+        nLTSHalosCopy = (nLTSHalos - 1) + num_interface
 
     nCells = ds['nCells'].size
     nEdges = ds['nEdges'].size
@@ -107,7 +107,7 @@ def main(base_mesh, graph_info, num_extra_interface, coarse_region_dist, lts2):
                             LTSRegionLocal[cell2] = ( LTSRegionLocal[cell2] 
                                 +  2 * (iHalo + 2) )
 
-    if num_extra_interface != 0:
+    if num_interface != 0:
         # this means we are using LTS2
         if (nLTSHalos == 1): 
             for iCell in range(0, nCells):
@@ -209,10 +209,10 @@ if __name__ == '__main__':
                         help='The graph.info file corresponding to the base \
                         mesh. Default is `graph.info`.')
 
-    parser.add_argument('-e', '--num-extra-interface-layers', 
-                        dest='num_extra_interface', default=0, type=int,
+    parser.add_argument('-l', '--num-interface-layers', 
+                        dest='num_interface', default=1, type=int,
                         help='Number of extra interface layers to add for load \
-                        balancing. Default is 0. NOTE: LTS3 requires that 2 is \
+                        balancing. Default is 1. NOTE: LTS3 requires that 2 is \
                         added to this number--THIS IS HANDELED AUTOMATICALLY. \
                         For example, running LTS3 and setting this flag to 38 \
                         results in 40 total interface layers for each region.')
@@ -230,6 +230,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    main(args.base_mesh, args.graph_info, args.num_extra_interface,
+    main(args.base_mesh, args.graph_info, args.num_interface,
          args.coarse_region_dist, args.lts2)
 

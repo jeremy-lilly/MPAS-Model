@@ -10,7 +10,7 @@ from build_graph_info_part_for_multi_block_run import main as partition_graph
 
 
 def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
-         numExtraInterface, coarseRegionDist, disableOutput, doLTS2):
+         numInterface, coarseRegionDist, disableOutput, doLTS2):
     
     startingDir = os.getcwd()
     
@@ -42,7 +42,7 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     print('\n\n\n--- Done\n\n\n')
 
     print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
-    build_graph(baseMesh, graphInfo, numExtraInterface, coarseRegionDist, doLTS2)
+    build_graph(baseMesh, graphInfo, numInterface, coarseRegionDist, doLTS2)
     print('\n\n\n--- Done\n\n\n')
 
     print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
@@ -76,8 +76,8 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
         nLTSHalos = 3
         LTSX = 'LTS3'
 
-    if numExtraInterface != 0:
-        nLTSHalosCopy = (nLTSHalos - 1) + numExtraInterface
+    if numInterface != 1:
+        nLTSHalosCopy = (nLTSHalos - 1) + numInterface
         moreCellsOnInterface = 1
     else:
         nLTSHalosCopy = nLTSHalos
@@ -208,7 +208,7 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     paraTxt += 'numProcs = ' + str(numProcs) + '\n'
     paraTxt += 'multiBlocks = ' + str(multiBlocks) + '\n'
     paraTxt += 'numBlocks = ' + str(numBlocks) + '\n'
-    paraTxt += 'numExtraInterface = ' + str(numExtraInterface) + '\n'
+    paraTxt += 'numInterface = ' + str(numInterface) + '\n'
     paraTxt += 'coarseRegionDist = ' + str(0.55) + '\n'
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
@@ -266,10 +266,10 @@ if __name__ == '__main__':
                         processor has three blocks--one for each type of LTS \
                         region i.e. NUM_BLOCKS = 3 * NUM_PROCS.')
 
-    parser.add_argument('-e', '--num-extra-interface-layers', 
-                        dest='num_extra_interface', default=0, type=int,
-                        help='Number of extra interface layers to add for load \
-                        balancing. Default is 0. NOTE: LTS3 requires that 2 is \
+    parser.add_argument('-l', '--num-interface-layers', 
+                        dest='num_interface', default=1, type=int,
+                        help='Number of interface layers to add for load \
+                        balancing. Default is 1. NOTE: LTS3 requires that 2 is \
                         added to this number--THIS IS HANDELED AUTOMATICALLY. \
                         For example, running LTS3 and setting this flag to 38 \
                         results in 40 total interface layers for each region.')
@@ -294,6 +294,6 @@ if __name__ == '__main__':
 
     main(args.out_dir, args.model_repo, args.base_mesh, args.graph_info, 
          args.model, args.num_procs, args.multi_blocks, 
-         args.num_extra_interface, args.coarse_region_dist, 
+         args.num_interface, args.coarse_region_dist, 
          args.disable_output, args.do_lts2)
 
