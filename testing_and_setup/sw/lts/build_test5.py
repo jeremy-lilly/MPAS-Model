@@ -209,7 +209,7 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     paraTxt += 'multiBlocks = ' + str(multiBlocks) + '\n'
     paraTxt += 'numBlocks = ' + str(numBlocks) + '\n'
     paraTxt += 'numInterface = ' + str(numInterface) + '\n'
-    paraTxt += 'coarseRegionDist = ' + str(0.55) + '\n'
+    paraTxt += 'coarseRegionDist = ' + str(coarseRegionDist) + '\n'
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
 
