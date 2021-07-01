@@ -20,6 +20,9 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     if modelRepo[-1] != '/':
         modelRepo += '/'
 
+    if not os.path.exists(outDir):
+        os.makedirs(outDir)
+
 
     # -- BEGIN --
     # mesh generation and MPI partitioning
