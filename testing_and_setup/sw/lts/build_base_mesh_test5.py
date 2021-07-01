@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 
-def cellWidthVsLatLon(plots):
+def cellWidthVsLatLon(coarse_res, fine_res, plots):
     """
     Create cell width array for this mesh on a regular latitude-longitude grid.
 
@@ -38,14 +38,14 @@ def cellWidthVsLatLon(plots):
     # 21 for CPU ratio test, 
     # 40 for speed up test
     # 250 to have a very coarse mesh for testing
-    coarseResolution = 40  # km
+    coarseResolution = coarse_res  # km
 
     # fineResolution was set to
     # was 50 for convergence tests in paper,
     # 7 for CPU ratio test,
     # 2.5 for speed up test,
     # 80 to have a very coarse mesh for testing
-    fineResolution = 2.5  # km
+    fineResolution = fine_res  # km
 
     # fineRadius was set to
     # 6000 for convergence test in paper,
@@ -98,14 +98,14 @@ def cellWidthVsLatLon(plots):
     return cellWidth, lon, lat
 
 
-def main(output_file, plots):
+def main(output_file, coarse_res, fine_res, plots):
     """
     Python script to build spatial mesh for test case 5 of Williamson et al.
 
     Run `./build_base_mesh_for_test5.py --help` for usage information.
     """
 
-    cellWidth, lon, lat = cellWidthVsLatLon(plots)
+    cellWidth, lon, lat = cellWidthVsLatLon(coarse_res, fine_res, plots)
     build_spherical_mesh(cellWidth, lon, lat, out_filename=output_file)
 
 
@@ -119,11 +119,21 @@ if __name__ == '__main__':
                     default='base_mesh.nc',
                     help='Name for output file. Default is `base_mesh.nc`.')
 
+    parser.add_argument('-c', '--coarse-res', dest='coarse_res', type=float,
+                        default=40,
+                        help='Size in km for coarse cells. Default is \
+                        40.')
+    
+    parser.add_argument('-f', '--fine-res', dest='fine_res', type=float,
+                        default=2.5,
+                        help='Size in km for coarse cells. Default is \
+                        2.5.')
+
     parser.add_argument('-p', '--plots', dest='plots', action="store_true",
                     help='Produce plots of the mesh using matplotlib.')
 
     args = parser.parse_args()
 
 
-    main(args.output_file, args.plots)
+    main(args.output_file, args.coarse_res, args.fine_res, args.plots)
 

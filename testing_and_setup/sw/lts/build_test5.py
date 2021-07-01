@@ -9,8 +9,20 @@ from build_weighted_graph_info_with_lts_regions_test5 import main as build_graph
 from build_graph_info_part_for_multi_block_run import main as partition_graph
 
 
-def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
-         numInterface, coarseRegionDist, coarseDT, fineM, disableOutput, 
+def main(outDir,
+         modelRepo,
+         baseMesh,
+         graphInfo,
+         model,
+         numProcs,
+         multiBlocks,
+         numInterface,
+         coarseRegionDist,
+         coarseDT,
+         fineM,
+         coarseRes,
+         fineRes,
+         disableOutput, 
          doLTS2):
     
     startingDir = os.getcwd()
@@ -31,7 +43,7 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     os.chdir(outDir)
 
     print('\n\n\n--- Building base mesh...\n\n\n')
-    build_base_mesh(baseMesh, True)
+    build_base_mesh(baseMesh, coarseRes, fineRes, True)
     print('\n\n\n--- Done\n\n\n')
 
     print('\n\n\n--- Converting ' + baseMesh + ' to a MPAS mesh...\n\n\n')
@@ -211,8 +223,10 @@ def main(outDir, modelRepo, baseMesh, graphInfo, model, numProcs, multiBlocks,
     paraTxt += 'numBlocks = ' + str(numBlocks) + '\n'
     paraTxt += 'numInterface = ' + str(numInterface) + '\n'
     paraTxt += 'coarseDT = ' + str(coarseDT) + '\n'
-    paraTxt += 'fineM = ' + str(fineM) + '\n'
     paraTxt += 'coarseRegionDist = ' + str(coarseRegionDist) + '\n'
+    paraTxt += 'fineM = ' + str(fineM) + '\n'
+    paraTxt += 'coarseRes = ' + str(coarseRes) + '\n'
+    paraTxt += 'fineRes = ' + str(fineRes) + '\n'
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
 
@@ -277,7 +291,7 @@ if __name__ == '__main__':
                         For example, running LTS3 and setting this flag to 38 \
                         results in 40 total interface layers for each region.')
 
-    parser.add_argument('-c', '--coarse-region-dist', 
+    parser.add_argument('-e', '--coarse-region-dist', 
                         dest='coarse_region_dist', default=0.55, type=float,
                         help='Cells more than this distance way from the \
                         mountain at the north pole will be part of the coarse \
@@ -289,11 +303,21 @@ if __name__ == '__main__':
                         200 seconds.')
 
     parser.add_argument('-M', '--fine-dt-factor', dest='fine_M', default=25,
-                       type=int,
-                       help='The factor M so that fine_dt = coarse_dt / M. \
-                       Default is 25.')
+                        type=int,
+                        help='The factor M such that fine_dt = coarse_dt / M. \
+                        Default is 25.')
 
-    parser.add_argument('-d', '--disable-output', dest='disable_output',
+    parser.add_argument('-c', '--coarse-res', dest='coarse_res', default=40,
+                        type=float,
+                        help='The size on km of the cells in the coarse \
+                        region. Default is 40.')
+    
+    parser.add_argument('-f', '--fine-res', dest='fine_res', default=2.5,
+                        type=float,
+                        help='The size on km of the cells in the fine \
+                        region. Default is 2.5.')
+
+    parser.add_argument('--disable-output', dest='disable_output',
                         action='store_true',
                         help='Configure `streams.sw` to forgo producing \
                         visualization output.')
@@ -305,8 +329,19 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    main(args.out_dir, args.model_repo, args.base_mesh, args.graph_info, 
-         args.model, args.num_procs, args.multi_blocks, 
-         args.num_interface, args.coarse_region_dist, args.coarse_dt, 
-         args.fine_M, args.disable_output, args.do_lts2)
+    main(args.out_dir,
+         args.model_repo,
+         args.base_mesh,
+         args.graph_info, 
+         args.model,
+         args.num_procs,
+         args.multi_blocks, 
+         args.num_interface, 
+         args.coarse_region_dist,
+         args.coarse_dt, 
+         args.fine_M,
+         args.coarse_res,
+         args.fine_res,
+         args.disable_output,
+         args.do_lts2)
 
