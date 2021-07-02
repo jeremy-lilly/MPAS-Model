@@ -142,11 +142,15 @@ def main(outDir,
 
     shCommand = 'cp sw_model ' + outDir + model
     sp.call(shCommand.split())
+    
+    shCommand = 'cp namelist.sw streams.sw ' + outDir
+    sp.call(shCommand.split())
+
+    shCommand = 'make clean CORE=sw'
+    sp.call(shCommand.split())
     print('\n\n\n--- Done\n\n\n')
 
     print('\n\n\n--- Configuring namelist.sw and streams.sw...\n\n\n')
-    shCommand = 'cp namelist.sw streams.sw ' + outDir
-    sp.call(shCommand.split())
 
     os.chdir(outDir)
 
