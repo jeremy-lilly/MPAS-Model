@@ -167,6 +167,9 @@ def main(outDir,
             elif 'config_dt' in words:
                 words[-1] = str(coarseDT)
                 newTxt += '    ' + ' '.join(words) + '\n'
+            elif 'config_start_time' in words:
+                words[-1] = "'" + '0001-01-01_00:00:00' + "'"
+                newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_run_duration' in words:
                 words[-1] = "'" + '00:30:00' + "'"  # TODO
                 newTxt += '    ' + ' '.join(words) + '\n'
