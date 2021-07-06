@@ -5,7 +5,7 @@ import os
 import subprocess as sp
 import xml.etree.ElementTree as et
 from build_base_mesh_test5 import main as build_base_mesh
-from build_weighted_graph_info_with_lts_regions_test5 import main as build_graph
+from build_weighted_graph_info_with_lts_regions_test5 import main as weight_graph
 from build_graph_info_part_for_multi_block_run import main as partition_graph
 
 
@@ -55,7 +55,11 @@ def main(outDir,
     print('\n\n\n--- Done\n\n\n')
 
     print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
-    build_graph(baseMesh, graphInfo, numInterface, coarseRegionDist, doLTS2)
+    nFineCells, nCoarseCells, areaRatio, numberRatio = weight_graph(baseMesh, 
+                                                                    graphInfo, 
+                                                                    numInterface, 
+                                                                    coarseRegionDist, 
+                                                                    doLTS2)
     print('\n\n\n--- Done\n\n\n')
 
     print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
@@ -219,8 +223,9 @@ def main(outDir,
 
     # Write chosen parameters to a text file for later reference
     paraTxt = 'Parameter list for test case 5 from Williamson et al. for LTS.'
-    paraTxt += '\n\n'
 
+    paraTxt += '\n\n'
+    paraTxt += 'User defined parameters:\n'
     paraTxt += 'outDir = ' + outDir + '\n'
     paraTxt += 'modelRepo = ' + modelRepo + '\n'
     paraTxt += 'baseMesh = ' + baseMesh + '\n'
@@ -238,7 +243,17 @@ def main(outDir,
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
 
-    paraTxt += '\nThis test case should be run from ' + outDir + ' with:\n'
+    paraTxt += '\n'
+    paraTxt += 'Other parameters:\n'
+    paraTxt += 'Number of fine cells = ' + str(nFineCells) + '\n'
+    paraTxt += 'Number of coarse cells = ' + str(nCoarseCells) + '\n'
+    paraTxt += ('Ratio of largest cell area to smallest cell area = '
+                + str(areaRatio) + '\n')
+    paraTxt += ('Ratio of number of coarse cells to number of fine cells = '
+                + str(numberRatio) + '\n')
+
+    paraTxt += '\n'
+    paraTxt += 'This test case should be run from ' + outDir + ' with:\n'
     paraTxt += ('    mpirun -n ' + str(numProcs) + ' ' + str(model) + ' '
                 + 'namelist.sw streams.sw\n')
 

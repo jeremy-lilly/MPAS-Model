@@ -177,10 +177,18 @@ def main(base_mesh, graph_info, num_interface, coarse_region_dist, lts2):
     with open(graph_info, 'w') as f:
         f.write(newf)
 
-    print(fineCells)
-    print(coarseCells)
-    ratio = max(areaCell) / min(areaCell)
-    print(ratio)
+    areaRatio = max(areaCell) / min(areaCell)
+    numberRatio = coarseCells / fineCells
+
+    print('Number of fine cells = ' + str(fineCells))
+    print('Number of coarse cells = ' + str(coarseCells))
+    print('Ratio of largest cell area to smallest cell area = ' 
+          + str(areaRatio))
+    print('Ratio of number of coarse cells to number of fine cells = '
+          + str(numberRatio))
+
+    return fineCells, coarseCells, areaRatio, numberRatio
+
 
 # END of main()
 
