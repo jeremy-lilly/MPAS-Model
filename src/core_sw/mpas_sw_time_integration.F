@@ -2961,7 +2961,7 @@ call mpas_timer_start("clean-up time LTS")
            uNew(:,:) = uOld(:,:)
         end if
 
-        call sw_compute_solve_diagnostics(dt, statePool, meshPool, 2)
+        !call sw_compute_solve_diagnostics(dt, statePool, meshPool, 2)
 call mpas_timer_start("barrier time")
 call cpu_time(startBarrier)
 call MPI_Barrier(domain % dminfo % comm, err)
