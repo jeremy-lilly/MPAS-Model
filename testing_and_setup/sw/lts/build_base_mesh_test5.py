@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 
-def cellWidthVsLatLon(coarse_res, fine_res, plots):
+def cellWidthVsLatLon(coarse_res, fine_res, fine_radius, plots):
     """
     Create cell width array for this mesh on a regular latitude-longitude grid.
 
@@ -52,7 +52,7 @@ def cellWidthVsLatLon(coarse_res, fine_res, plots):
     # 1500 for CPU ratio test,
     # 400 for speed up test,
     # 1500 to have very coarse mesh for testing
-    fineRadius = 400  # km
+    fineRadius = fine_radius  # km
 
     transitionWidth = 100 # km
     earthRadius = 6.371e3 # km
@@ -98,14 +98,15 @@ def cellWidthVsLatLon(coarse_res, fine_res, plots):
     return cellWidth, lon, lat
 
 
-def main(output_file, coarse_res, fine_res, plots):
+def main(output_file, coarse_res, fine_res, fine_radius, plots):
     """
     Python script to build spatial mesh for test case 5 of Williamson et al.
 
     Run `./build_base_mesh_for_test5.py --help` for usage information.
     """
 
-    cellWidth, lon, lat = cellWidthVsLatLon(coarse_res, fine_res, plots)
+    cellWidth, lon, lat = cellWidthVsLatLon(coarse_res, fine_res, fine_radius, 
+                                            plots)
     build_spherical_mesh(cellWidth, lon, lat, out_filename=output_file)
 
 
@@ -129,11 +130,20 @@ if __name__ == '__main__':
                         help='Size in km for coarse cells. Default is \
                         2.5.')
 
+    parser.add_argument('-s', '--fine-radius', dest='fine_radius', type=float, 
+                        default=400,
+                        help='Radius around the mountain to place cells with \
+                        the fine resolution. Default is 400.')
+
     parser.add_argument('-p', '--plots', dest='plots', action="store_true",
                     help='Produce plots of the mesh using matplotlib.')
 
     args = parser.parse_args()
 
 
-    main(args.output_file, args.coarse_res, args.fine_res, args.plots)
+    main(args.output_file,
+         args.coarse_res,
+         args.fine_res,
+         args.fine_radius,
+         args.plots)
 

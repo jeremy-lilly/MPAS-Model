@@ -22,6 +22,7 @@ def main(outDir,
          fineM,
          coarseRes,
          fineRes,
+         fineRadius,
          disableOutput, 
          doLTS2):
     
@@ -43,7 +44,7 @@ def main(outDir,
     os.chdir(outDir)
 
     print('\n\n\n--- Building base mesh...\n\n\n')
-    build_base_mesh(baseMesh, coarseRes, fineRes, True)
+    build_base_mesh(baseMesh, coarseRes, fineRes, fineRadius, True)
     print('\n\n\n--- Done\n\n\n')
 
     print('\n\n\n--- Converting ' + baseMesh + ' to a MPAS mesh...\n\n\n')
@@ -240,6 +241,7 @@ def main(outDir,
     paraTxt += 'fineM = ' + str(fineM) + '\n'
     paraTxt += 'coarseRes = ' + str(coarseRes) + '\n'
     paraTxt += 'fineRes = ' + str(fineRes) + '\n'
+    paraTxt += 'fineRadius = ' + str(fineRadius) + '\n'
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
 
@@ -339,6 +341,11 @@ if __name__ == '__main__':
                         type=float,
                         help='The size on km of the cells in the fine \
                         region. Default is 2.5.')
+    
+    parser.add_argument('-s', '--fine-radius', dest='fine_radius', type=float, 
+                        default=400,
+                        help='Radius around the mountain to place cells with \
+                        the fine resolution. Default is 400.')
 
     parser.add_argument('--disable-output', dest='disable_output',
                         action='store_true',
@@ -365,6 +372,7 @@ if __name__ == '__main__':
          args.fine_M,
          args.coarse_res,
          args.fine_res,
+         args.fine_radius,
          args.disable_output,
          args.do_lts2)
 
