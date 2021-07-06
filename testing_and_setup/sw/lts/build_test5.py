@@ -68,10 +68,11 @@ def main(outDir,
     sp.call(shCommand.split())
     print('\n\n\n--- Done\n\n\n')
 
-    print('\n\n\n--- Resorting cells so that each MPI block only has one \n \
-          type of cell--fine, interface, or coarse...\n\n\n')
-    partition_graph(baseMesh, graphInfo, numBlocks)
-    print('\n\n\n--- Done\n\n\n')
+    if multiBlocks:
+        print('\n\n\n--- Resorting cells so that each MPI block only has one \n \
+              type of cell--fine, interface, or coarse...\n\n\n')
+        partition_graph(baseMesh, graphInfo, numBlocks)
+        print('\n\n\n--- Done\n\n\n')
 
     # mesh generation and MPI partitioning
     # -- END --
