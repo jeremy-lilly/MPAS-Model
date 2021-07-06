@@ -249,6 +249,8 @@ def main(outDir,
     paraTxt += 'Other parameters:\n'
     paraTxt += 'Number of fine cells = ' + str(nFineCells) + '\n'
     paraTxt += 'Number of coarse cells = ' + str(nCoarseCells) + '\n'
+    paraTxt += ('Ratio of fineRes to coarseRes = ' 
+                + str(coarseRes / fineRes) + '\n')
     paraTxt += ('Ratio of largest cell area to smallest cell area = '
                 + str(areaRatio) + '\n')
     paraTxt += ('Ratio of number of coarse cells to number of fine cells = '
