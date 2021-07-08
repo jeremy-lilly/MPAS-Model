@@ -2,6 +2,7 @@
 
 import argparse as ap
 import os
+import sys
 import subprocess as sp
 import xml.etree.ElementTree as et
 from build_base_mesh_test5 import main as build_base_mesh
@@ -24,8 +25,13 @@ def main(outDir,
          fineRes,
          fineRadius,
          disableOutput, 
-         doLTS2):
-    
+         doLTS2,
+         doRK4):
+
+    if doRK4 and multiBlocks:
+        sys.exit('Cannot use multi-blocks and RK4')
+  
+
     startingDir = os.getcwd()
     
     if outDir[-1] != '/':
@@ -55,13 +61,22 @@ def main(outDir,
     sp.call(shCommand.split())
     print('\n\n\n--- Done\n\n\n')
 
-    print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
-    nFineCells, nCoarseCells, areaRatio, numberRatio = weight_graph(baseMesh, 
-                                                                    graphInfo, 
-                                                                    numInterface, 
-                                                                    coarseRegionDist, 
-                                                                    doLTS2)
-    print('\n\n\n--- Done\n\n\n')
+    if not doRK4:
+        print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
+        nFineCells, nCoarseCells, areaRatio, numberRatio = weight_graph(baseMesh, 
+                                                                        graphInfo, 
+                                                                        numInterface, 
+                                                                        coarseRegionDist, 
+                                                                        doLTS2)
+        print('\n\n\n--- Done\n\n\n')
+    else:
+        nCoarseCells = areaRatio = numberRatio = -1
+
+        shCommand = 'wc ' + graphInfo
+        wcOut = sp.check_output(shCommand.split())
+        wcOut = wcOut.split()
+        nFineCells = int(wcOut[0]) - 1
+    # END if
 
     print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
     if multiBlocks:
@@ -73,11 +88,12 @@ def main(outDir,
     sp.call(shCommand.split())
     print('\n\n\n--- Done\n\n\n')
 
-    if multiBlocks:
-        print('\n\n\n--- Resorting cells so that each MPI block only has one \n \
+    if multiBlocks and not doRK4:
+        print('\n\n\n--- Resorting cells so that each MPI block only has one \
               type of cell--fine, interface, or coarse...\n\n\n')
         partition_graph(baseMesh, graphInfo, numBlocks)
         print('\n\n\n--- Done\n\n\n')
+    # END if
 
     # mesh generation and MPI partitioning
     # -- END --
@@ -91,9 +107,15 @@ def main(outDir,
     if doLTS2:
         nLTSHalos = 1
         LTSX = 'LTS2'
+        useLTS = 'true'
+    elif doRK4:
+        nLTSHalos = 1  # This is not used in this case
+        LTSX = 'RK4'
+        useLTS = 'false'
     else:
         nLTSHalos = 3
         LTSX = 'LTS3'
+        useLTS = 'true'
 
     if numInterface != 1:
         nLTSHalosCopy = (nLTSHalos - 1) + numInterface
@@ -189,7 +211,7 @@ def main(outDir,
                 words[-1] = "'" + graphInfo + '.part.' + "'"
                 newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_use_local_time_stepping' in words:
-                words[-1] = 'true'
+                words[-1] = useLTS
                 newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_dt_scaling_LTS' in words:
                 words[-1] = str(fineM)
@@ -244,6 +266,7 @@ def main(outDir,
     paraTxt += 'fineRadius = ' + str(fineRadius) + '\n'
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
+    paraTxt += 'doRK4 = ' + str(doRK4) + '\n'
 
     paraTxt += '\n'
     paraTxt += 'Other parameters:\n'
@@ -275,6 +298,7 @@ if __name__ == '__main__':
                                mesh, graph.info file, block partition, and \
                                executable for running a variation of test case \
                                5 from Williamson et al.')
+
 
     parser.add_argument('-o', '--out-dir', dest='out_dir', required=True,
                         type=str,
@@ -354,9 +378,24 @@ if __name__ == '__main__':
                         help='Configure `streams.sw` to forgo producing \
                         visualization output.')
 
-    parser.add_argument('--lts2', dest='do_lts2', action='store_true',
-                        help='Prepare the mesh for LTS2 rather than LTS3 which \
-                        is the default.')
+
+    time_stepping_grp = parser.add_mutually_exclusive_group()
+
+    time_stepping_grp.add_argument('--lts2', dest='do_lts2', 
+                                   action='store_true',
+                                   help='Prepare the mesh for LTS2 rather than \
+                                   LTS3 which is the default.')
+    
+    time_stepping_grp.add_argument('--rk4', dest='do_rk4', 
+                                   action='store_true',
+                                   help='Prepare the mesh for RK4 rather than \
+                                   LTS3 which is the default. NOTE: If this \
+                                   flag is set, one needs to change the \
+                                   coarse-dt flag to account for the fact that \
+                                   one may have small cells in your mesh and \
+                                   that the coarse time-step is the global \
+                                   time-step.')
+
 
     args = parser.parse_args()
 
@@ -376,5 +415,6 @@ if __name__ == '__main__':
          args.fine_res,
          args.fine_radius,
          args.disable_output,
-         args.do_lts2)
+         args.do_lts2,
+         args.do_rk4)
 
