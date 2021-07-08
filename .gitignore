@@ -60,3 +60,7 @@ stream_list.*
 *.i90
 
 src/core_*/inc
+
+# Python bytecode directory
+__pycache__
+
