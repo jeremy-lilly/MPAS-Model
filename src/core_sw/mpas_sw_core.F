@@ -331,10 +331,10 @@ module sw_core
               call mpas_pool_get_subpool(block_ptr % structs, 'state', statePool)
               call mpas_pool_get_subpool(block_ptr % structs, 'mesh', meshPool)
    
-              call mpas_timer_start("global_diagnostics")
+              !call mpas_timer_start("global_diagnostics")
               !call sw_compute_global_diagnostics(domain % dminfo, &
               !         statePool, meshPool, itimestep, dt, 2)
-              call mpas_timer_stop("global_diagnostics")
+              !call mpas_timer_stop("global_diagnostics")
           end if
       end if
 
