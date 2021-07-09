@@ -24,7 +24,7 @@ def main(base_mesh, graph_info, num_interface, coarse_region_dist, lts2):
     # AND HAS TO BE THE SAME SET IN init_LTS 
     # For example, if running LTS3 and num_interface == 38,
     # Then set nLTSHalosCopy = 40 in init_LTS
-    # Also, if num_interface != 0, need to set
+    # Also, if num_interface != 1, need to set
     # moreCellsOnInterface = 1 on init_LTS
     # We may want to change variable names here and in init LTS for readability
     nLTSHalosCopy = nLTSHalos
@@ -107,7 +107,7 @@ def main(base_mesh, graph_info, num_interface, coarse_region_dist, lts2):
                             LTSRegionLocal[cell2] = ( LTSRegionLocal[cell2] 
                                 +  2 * (iHalo + 2) )
 
-    if num_interface != 0:
+    if num_interface != 1:
         # this means we are using LTS2
         if (nLTSHalos == 1): 
             for iCell in range(0, nCells):
