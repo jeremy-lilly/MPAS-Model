@@ -73,7 +73,8 @@ def cellWidthVsLatLon(coarse_res, fine_res, fine_radius, plots):
     distance = ( 2.0 * earthRadius
                * np.arctan2(np.sqrt(distance), np.sqrt(1.0 - distance)) )
 
-    tanhDistance = np.tanh((fineRadius-distance) / transitionWidth)
+    tanhDistance = 0.5 * ( 1 + np.tanh((fineRadius - distance) 
+                                       / transitionWidth) )
      
     cellWidth = ( coarseResolution + (fineResolution - coarseResolution)
                 * tanhDistance )
