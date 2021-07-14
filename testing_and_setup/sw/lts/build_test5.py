@@ -358,10 +358,10 @@ if __name__ == '__main__':
                         help='The factor M such that fine_dt = coarse_dt / M. \
                         Default is 25.')
 
-    parser.add_argument('-c', '--coarse-res', dest='coarse_res', default=40,
+    parser.add_argument('-c', '--coarse-res', dest='coarse_res', default=80,
                         type=float,
                         help='The size on km of the cells in the coarse \
-                        region. Default is 40.')
+                        region. Default is 80.')
     
     parser.add_argument('-f', '--fine-res', dest='fine_res', default=2.5,
                         type=float,

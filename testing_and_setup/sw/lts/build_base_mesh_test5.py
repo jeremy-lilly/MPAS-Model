@@ -122,9 +122,9 @@ if __name__ == '__main__':
                     help='Name for output file. Default is `base_mesh.nc`.')
 
     parser.add_argument('-c', '--coarse-res', dest='coarse_res', type=float,
-                        default=40,
+                        default=80,
                         help='Size in km for coarse cells. Default is \
-                        40.')
+                        80.')
     
     parser.add_argument('-f', '--fine-res', dest='fine_res', type=float,
                         default=2.5,
