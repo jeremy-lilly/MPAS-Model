@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import subprocess as sp
 import shutil
 import numpy as np
 import xarray as xr
@@ -152,6 +153,26 @@ def main(base_mesh, graph_info, num_interface, coarse_region_dist, lts2):
                     else :
                         LTSRegionLocal[iCell] = 4 
 
+    
+    # create mesh_with_lts_regions.nc 
+    LTSDataArray = xr.DataArray(LTSRegionLocal)
+    LTSDict = {'LTSRegionLocal': (['nCells'], LTSDataArray)}
+    LTSds = xr.Dataset(LTSDict)
+
+    encodingDict = {'LTSRegionLocal': {'_FillValue': -1}}
+    
+    combined = xr.merge([ds, LTSds], combine_attrs='drop_conflicts')
+    combined.to_netcdf(path='mesh_with_lts.nc', 
+                       encoding=encodingDict,
+                       format='NETCDF3_64BIT')
+
+    shCommand = 'paraview_vtk_field_extractor.py -f mesh_with_lts.nc \
+                 -v allOnCells,allOnEdges -d TWO= maxEdges=  maxEdges2= \
+                 -o mesh_with_lts_vtk'
+    sp.call(shCommand.split())
+
+    
+    # label cells in graph.info
     fineCells = 0
     coarseCells = 0
     
