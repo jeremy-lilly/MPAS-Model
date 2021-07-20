@@ -24,7 +24,8 @@ def main(outDir,
          coarseRes,
          fineRes,
          fineRadius,
-         disableOutput, 
+         disableOutput,
+         modelDebug,
          doLTS2,
          doRK4):
 
@@ -129,6 +130,11 @@ def main(outDir,
     else:
         modelOutput = 'output'
 
+    if modelDebug:
+        debug = 'true'
+    else:
+        debug = 'false'
+
 
     print('\n\n\n--- Editing Registry.xml...\n\n\n')
     registryXML = modelRepo + 'src/core_sw/Registry.xml'
@@ -165,7 +171,7 @@ def main(outDir,
     shCommand = 'make clean CORE=sw'
     sp.call(shCommand.split())
 
-    shCommand = 'make gfortran CORE=sw DEBUG=false'
+    shCommand = 'make gfortran CORE=sw DEBUG=' + debug
     sp.call(shCommand.split())
 
     shCommand = 'cp sw_model ' + outDir + model
@@ -265,6 +271,7 @@ def main(outDir,
     paraTxt += 'fineRes = ' + str(fineRes) + '\n'
     paraTxt += 'fineRadius = ' + str(fineRadius) + '\n'
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
+    paraTxt += 'modelDebug = ' + str(modelDebug) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
     paraTxt += 'doRK4 = ' + str(doRK4) + '\n'
 
@@ -378,6 +385,10 @@ if __name__ == '__main__':
                         help='Configure `streams.sw` to forgo producing \
                         visualization output.')
 
+    parser.add_argument('--model-debug', dest='model_debug',
+                        action='store_true',
+                        help='Compile the model with DEBUG=true.')
+
 
     time_stepping_grp = parser.add_mutually_exclusive_group()
 
@@ -415,6 +426,7 @@ if __name__ == '__main__':
          args.fine_res,
          args.fine_radius,
          args.disable_output,
+         args.model_debug,
          args.do_lts2,
          args.do_rk4)
 
