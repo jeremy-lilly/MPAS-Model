@@ -607,6 +607,7 @@ call mpas_timer_start("clean-up time SSPRK")
 
          !call sw_compute_solve_diagnostics(dt, statePool, meshPool, 2)
 
+
 call mpas_timer_start("barrier time")
 call MPI_Barrier(domain % dminfo % comm, err)
 call mpas_timer_stop("barrier time")
@@ -642,9 +643,8 @@ call mpas_timer_stop("clean-up time SSPRK")
       integer :: iCell, iEdge, iRegion, k, ic, ie, im, M, nRegions, err 
       type (block_type), pointer :: block
       type (mpas_pool_type), pointer :: statePool, meshPool, tendPool, LTSPool
-      type (mpas_pool_type), pointer :: firstStagePool, secondStagePool, tendSum1stPool, tendSum2ndPool, tendSum3rdPool
-      type (mpas_pool_type), pointer :: prevFirstStagePool, nextFirstStagePool, prevTendSum1stPool, nextTendSum1stPool, prevTendSum2ndPool, nextTendSum2ndPool
-      type (mpas_pool_type), pointer :: prevSecondStagePool, nextSecondStagePool, prevTendSum3rdPool, nextTendSum3rdPool
+      type (mpas_pool_type), pointer :: tendSum1stPool, tendSum2ndPool, tendSum3rdPool
+      type (mpas_pool_type), pointer :: prevTendSum1stPool, nextTendSum1stPool, prevTendSum2ndPool, nextTendSum2ndPool, prevTendSum3rdPool, nextTendSum3rdPool
  
       integer, pointer :: nCells, nEdges, nVertices, nVertLevels, haveFine, haveCoarse, haveInterface
 
@@ -704,17 +704,10 @@ call mpas_timer_start("create extra pools LTS")
          call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
          call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
 
-         allocate(firstStagePool)
-         allocate(secondStagePool)
          allocate(tendSum1stPool)
          allocate(tendSum2ndPool)
          allocate(tendSum3rdPool)
 
-         call mpas_pool_create_pool(firstStagePool)
-         call mpas_pool_clone_pool(statePool, firstStagePool, 1)
-         call mpas_pool_create_pool(secondStagePool)
-         call mpas_pool_clone_pool(statePool, secondStagePool, 1)
-         
          call mpas_pool_create_pool(tendSum1stPool)
          call mpas_pool_clone_pool(tendPool, tendSum1stPool, 1)
          call mpas_pool_create_pool(tendSum2ndPool)
@@ -722,8 +715,6 @@ call mpas_timer_start("create extra pools LTS")
          call mpas_pool_create_pool(tendSum3rdPool)
          call mpas_pool_clone_pool(tendPool, tendSum3rdPool, 1)
 
-         call mpas_pool_add_subpool(block % structs, 'first_stage_state', firstStagePool)
-         call mpas_pool_add_subpool(block % structs, 'second_stage_state', secondStagePool)
          call mpas_pool_add_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
          call mpas_pool_add_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
          call mpas_pool_add_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
@@ -737,11 +728,14 @@ call mpas_timer_start("create extra pools LTS")
          call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
 
          call mpas_pool_get_array(statePool, 'h', hOld, 1)
-         call mpas_pool_get_array(statePool, 'h', hNew, 2)
+         call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+         call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
          call mpas_pool_get_array(statePool, 'u', uOld, 1)
-         call mpas_pool_get_array(statePool, 'u', uNew, 2)
+         call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+         call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
          call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
-         call mpas_pool_get_array(statePool, 'tracers', tracersNew, 2)
+         call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
+         call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
 
          call mpas_pool_get_array(tendSum1stPool, 'u', uTendSum1st)
          call mpas_pool_get_array(tendSum1stPool, 'h', hTendSum1st)
@@ -754,6 +748,15 @@ call mpas_timer_start("create extra pools LTS")
          call mpas_pool_get_array(tendSum3rdPool, 'u', uTendSum3rd)
          call mpas_pool_get_array(tendSum3rdPool, 'h', hTendSum3rd)
          call mpas_pool_get_array(tendSum3rdPool, 'tracers', tracersTendSum3rd)
+
+         hFirstStage(:,:) = hOld(:,:)
+         hSecondStage(:,:) = hOld(:,:)
+
+         uFirstStage(:,:) = uOld(:,:)
+         uSecondStage(:,:) = uOld(:,:)
+
+         tracersFirstStage(:,:,:) = tracersOld(:,:,:)
+         tracersSecondStage(:,:,:) = tracersOld(:,:,:)
 
          uTendSum1st(:,:) = 0
          hTendSum1st(:,:) = 0
@@ -775,38 +778,23 @@ call mpas_timer_start("create extra pools LTS")
       block => domain % blocklist
       do while(associated(block))
          if (associated(block % prev)) then
-            call mpas_pool_get_subpool(block % prev % structs, 'first_stage_state', prevFirstStagePool)
             call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_1st', tendSum1stPool)
             call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_2nd', tendSum2ndPool)
          else
-            nullify(prevFirstStagePool)
             nullify(prevTendSum1stPool)
             nullify(prevTendSum2ndPool)
          end if
 
          if (associated(block % next)) then
-            call mpas_pool_get_subpool(block % next % structs, 'first_stage_state', nextFirstStagePool)
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_1st', nextTendSum1stPool)
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_2nd', nextTendSum2ndPool)
          else
-            nullify(nextFirstStagePool)
             nullify(nextTendSum1stPool)
             nullify(nextTendSum2ndPool)
          end if
 
-         call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
          call mpas_pool_get_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
          call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
-
-         if (associated(prevFirstStagePool) .and. associated(nextFirstStagePool)) then
-            call mpas_pool_link_pools(firstStagePool, prevFirstStagePool, nextFirstStagePool)
-         else if (associated(prevFirstStagePool)) then
-            call mpas_pool_link_pools(firstStagePool, prevFirstStagePool)
-         else if (associated(nextFirstStagePool)) then
-            call mpas_pool_link_pools(firstStagePool, nextPool=nextFirstStagePool)
-         else
-            call mpas_pool_link_pools(firstStagePool)
-         end if
 
          if (associated(prevTendSum1stPool) .and. associated(nextTendSum1stPool)) then
             call mpas_pool_link_pools(tendSum1stPool, prevTendSum1stPool, nextTendSum1stPool)
@@ -828,40 +816,24 @@ call mpas_timer_start("create extra pools LTS")
             call mpas_pool_link_pools(tendSum2ndPool)
          end if
 
-         call mpas_pool_link_parinfo(block, firstStagePool)
          call mpas_pool_link_parinfo(block, tendSum1stPool)
          call mpas_pool_link_parinfo(block, tendSum2ndPool)
 
          if(lts_order == 3) then
 
          if (associated(block % prev)) then
-            call mpas_pool_get_subpool(block % prev % structs, 'second_stage_state', prevSecondStagePool)
             call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_3rd', prevTendSum3rdPool)
          else
-            nullify(prevSecondStagePool)
             nullify(prevTendSum3rdPool)
          end if
 
          if (associated(block % next)) then
-            call mpas_pool_get_subpool(block % next % structs, 'second_stage_state', nextSecondStagePool)
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_3rd', nextTendSum3rdPool)
          else
-            nullify(nextSecondStagePool)
             nullify(nextTendSum3rdPool)
          end if
 
-         call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
          call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
-
-         if (associated(prevSecondStagePool) .and. associated(nextSecondStagePool)) then
-            call mpas_pool_link_pools(secondStagePool, prevSecondStagePool, nextSecondStagePool)
-         else if (associated(prevSecondStagePool)) then
-            call mpas_pool_link_pools(secondStagePool, prevSecondStagePool)
-         else if (associated(nextSecondStagePool)) then 
-            call mpas_pool_link_pools(secondStagePool, nextPool=nextSecondStagePool)
-         else
-            call mpas_pool_link_pools(secondStagePool)
-         end if
 
          if (associated(prevTendSum3rdPool) .and. associated(nextTendSum3rdPool)) then
             call mpas_pool_link_pools(tendSum3rdPool, prevTendSum3rdPool, nextTendSum3rdPool)
@@ -873,7 +845,6 @@ call mpas_timer_start("create extra pools LTS")
             call mpas_pool_link_pools(tendSum3rdPool)
          end if
 
-         call mpas_pool_link_parinfo(block, secondStagePool)
          call mpas_pool_link_parinfo(block, tendSum3rdPool)
 
          end if
@@ -886,8 +857,6 @@ call mpas_timer_stop("create extra pools LTS")
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! BEGIN LTS SCHEME
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-     ! --- INTERFACE PREDICTION STEP
 
      ! --- compute the first stage of SSPRK for interface layer 1, interface layer 2 and coarse 
 
@@ -933,20 +902,6 @@ call cpu_time(finishTendencies)
 totalTimeTendencies = totalTimeTendencies + (finishTendencies - startTendencies)
 call mpas_timer_stop("tendencies LTS")
 
-! -- WE DON'T NEED HALO UPDATES ON THE TENDENCIES ANYMORE
-!call mpas_timer_start("barrier time")
-!call cpu_time(startBarrier)
-!call MPI_Barrier(domain % dminfo % comm, err)
-!call cpu_time(finishBarrier)
-!totalTimeBarrier = totalTimeBarrier + (finishBarrier - startBarrier)
-!call mpas_timer_stop("barrier time")
-!call mpas_timer_start("halo updates  LTS")
-!     ! --- update halos for prognostic variables
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_u')
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_h')
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_tracers')
-!call mpas_timer_stop("halo updates  LTS")
-
 call mpas_timer_start("advance soln LTS")
 call cpu_time(startAdvance)
      ! --- advance solution for interface layer 1, interface layer 2 and coarse with first stage of SSPRK
@@ -956,7 +911,6 @@ call cpu_time(startAdvance)
         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
         call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
         call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
 
         call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -968,9 +922,9 @@ call cpu_time(startAdvance)
         call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
         call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
-        call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+        call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+        call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+        call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
         call mpas_pool_get_array(statePool, 'u', uOld, 1)
         call mpas_pool_get_array(statePool, 'h', hOld, 1)
@@ -1076,59 +1030,11 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
-
-        uMPIHaloUpdate(:,:) = uFirstStage(:,:)
-        hMPIHaloUpdate(:,:) = hFirstStage(:,:)
-        tracersMPIHaloUpdate(:,:,:) = tracersFirstStage(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
-
 call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'uMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'hMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'tracersMPIHaloUpdate')
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=3)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=3)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=3)
 call mpas_timer_stop("halo updates  LTS")
-
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy back for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
-
-        uFirstStage(:,:) =  uMPIHaloUpdate(:,:)
-        hFirstStage(:,:) = hMPIHaloUpdate(:,:)
-        tracersFirstStage(:,:,:) = tracersMPIHaloUpdate(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy back for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
 
      ! ---------------------------------------------------------------------------------------------------------------------
 
@@ -1150,15 +1056,16 @@ call cpu_time(startTendencies)
      do while (associated(block))
  
         call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+        call mpas_pool_get_subpool(block % structs, 'state', statePool)
         call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
+
         call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
 
         if(haveCoarse == 1) then
-        call sw_compute_solve_diagnostics(dt, firstStagePool, meshPool, 1) 
-        call sw_compute_tend(tendPool, firstStagePool, meshPool, 1) 
-        call sw_compute_scalar_tend(tendPool, firstStagePool, meshPool, 1) 
+        call sw_compute_solve_diagnostics(dt, statePool, meshPool, 3) 
+        call sw_compute_tend(tendPool, statePool, meshPool, 3) 
+        call sw_compute_scalar_tend(tendPool, statePool, meshPool, 3) 
         call sw_enforce_boundary_edge(tendPool, meshPool)
         end if
 
@@ -1167,19 +1074,6 @@ call cpu_time(startTendencies)
 call cpu_time(finishTendencies)
 totalTimeTendencies = totalTimeTendencies + (finishTendencies - startTendencies)
 call mpas_timer_stop("tendencies LTS")
-
-!call mpas_timer_start("barrier time")
-!call cpu_time(startBarrier)
-!call MPI_Barrier(domain % dminfo % comm, err)
-!call cpu_time(finishBarrier)
-!totalTimeBarrier = totalTimeBarrier + (finishBarrier - startBarrier)
-!call mpas_timer_stop("barrier time")
-!call mpas_timer_start("halo updates  LTS")
-!     ! --- update halos for prognostic variables
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_u')
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_h')
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_tracers')
-!call mpas_timer_stop("halo updates  LTS")
 
 call mpas_timer_start("advance soln LTS")
 call cpu_time(startAdvance)
@@ -1190,8 +1084,6 @@ call cpu_time(startAdvance)
         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
         call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
         call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
         call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -1201,13 +1093,13 @@ call cpu_time(startAdvance)
         call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
         call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
 
-        call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+        call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+        call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+        call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
-        call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+        call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+        call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+        call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
         
         call mpas_pool_get_array(statePool, 'u', uOld, 1)
         call mpas_pool_get_array(statePool, 'h', hOld, 1)
@@ -1292,59 +1184,11 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
-
-        uMPIHaloUpdate(:,:) = uSecondStage(:,:)
-        hMPIHaloUpdate(:,:) = hSecondStage(:,:)
-        tracersMPIHaloUpdate(:,:,:) = tracersSecondStage(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
-
 call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'uMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'hMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'tracersMPIHaloUpdate')
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=4)
 call mpas_timer_stop("halo updates  LTS")
-
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
-
-        uSecondStage(:,:) = uMPIHaloUpdate(:,:)
-        hSecondStage(:,:) = hMPIHaloUpdate(:,:)
-        tracersSecondStage(:,:,:) = tracersMPIHaloUpdate(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
 
      ! ---------------------------------------------------------------------------------------------------------------------
 
@@ -1367,16 +1211,16 @@ call cpu_time(startTendencies)
      do while (associated(block))
 
         call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+        call mpas_pool_get_subpool(block % structs, 'state', statePool)
         call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
 
         call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
        if(haveInterface == 1) then
-        call sw_compute_solve_diagnostics(dt, firstStagePool, meshPool, 1)
-        call sw_compute_tend(tendPool, firstStagePool, meshPool, 1)
-        call sw_compute_scalar_tend(tendPool, firstStagePool, meshPool, 1)
+        call sw_compute_solve_diagnostics(dt, statePool, meshPool, 3)
+        call sw_compute_tend(tendPool, statePool, meshPool, 3)
+        call sw_compute_scalar_tend(tendPool, statePool, meshPool, 3)
         call sw_enforce_boundary_edge(tendPool, meshPool)
         end if
 
@@ -1385,19 +1229,6 @@ call cpu_time(startTendencies)
 call cpu_time(finishTendencies)
 totalTimeTendencies = totalTimeTendencies + (finishTendencies - startTendencies)
 call mpas_timer_stop("tendencies LTS")
-
-!call mpas_timer_start("barrier time")
-!call cpu_time(startBarrier)
-!call MPI_Barrier(domain % dminfo % comm, err)
-!call cpu_time(finishBarrier)
-!totalTimeBarrier = totalTimeBarrier + (finishBarrier - startBarrier)
-!call mpas_timer_stop("barrier time")
-!call mpas_timer_start("halo updates  LTS")
-!     ! --- update halos for prognostic variables
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_u')
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_h')
-!     call mpas_dmpar_field_halo_exch(domain, 'tend_tracers')
-!call mpas_timer_stop("halo updates  LTS")
 
 call mpas_timer_start("advance soln LTS")
 call cpu_time(startAdvance)
@@ -1408,8 +1239,6 @@ call cpu_time(startAdvance)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-           call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-           call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
            call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -1419,13 +1248,13 @@ call cpu_time(startAdvance)
            call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
            call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
-           call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
-           call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)       
+           call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)       
 
            call mpas_pool_get_array(statePool, 'u', uOld, 1)
            call mpas_pool_get_array(statePool, 'h', hOld, 1)
@@ -1485,59 +1314,11 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
-
-        uMPIHaloUpdate(:,:) = uSecondStage(:,:)
-        hMPIHaloUpdate(:,:) = hSecondStage(:,:)
-        tracersMPIHaloUpdate(:,:,:) = tracersSecondStage(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
-
 call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'uMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'hMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'tracersMPIHaloUpdate')
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=4)
 call mpas_timer_stop("halo updates  LTS")
-
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
-
-        uSecondStage(:,:) = uMPIHaloUpdate(:,:)
-        hSecondStage(:,:) = hMPIHaloUpdate(:,:)
-        tracersSecondStage(:,:,:) = tracersMPIHaloUpdate(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
 
      end if
 
@@ -1558,8 +1339,6 @@ call cpu_time(startInterface)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-           call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-           call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
            call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -1569,17 +1348,18 @@ call cpu_time(startInterface)
            call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
            call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
-           call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
-           call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
  
            call mpas_pool_get_array(statePool, 'u', uOld, 1)
            call mpas_pool_get_array(statePool, 'h', hOld, 1)
            call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
+
            call mpas_pool_get_array(statePool, 'u', uNew, 2)
            call mpas_pool_get_array(statePool, 'h', hNew, 2)
            call mpas_pool_get_array(statePool, 'tracers', tracersNew, 2)
@@ -1652,19 +1432,6 @@ call cpu_time(finishTendencies)
 totalTimeTendencies = totalTimeTendencies + (finishTendencies - startTendencies)
 call mpas_timer_stop("tendencies LTS")
 
-!call mpas_timer_start("barrier time")
-!call cpu_time(startBarrier)
-!call MPI_Barrier(domain % dminfo % comm, err)
-!call cpu_time(finishBarrier)
-!totalTimeBarrier = totalTimeBarrier + (finishBarrier - startBarrier)
-!call mpas_timer_stop("barrier time")
-!call mpas_timer_start("halo updates  LTS")
-!        ! --- update halos for prognostic variables
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_u')
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_h')
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_tracers')
-!call mpas_timer_stop("halo updates  LTS")
-
 call mpas_timer_start("advance soln LTS")
 call cpu_time(startAdvance)
         ! --- advance fine solution (first stage of SSPRK) AND sum up the tendecies above into tendSum2nd for interface layer 1 and interface layer 2
@@ -1675,7 +1442,6 @@ call cpu_time(startAdvance)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
            call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
            call mpas_pool_get_subpool(block % structs, 'state', statePool)
-           call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
 
            call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
@@ -1703,9 +1469,9 @@ call cpu_time(startAdvance)
            call mpas_pool_get_array(statePool, 'h', hOld, 1)
            call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
 
-           call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
            if(haveFine == 1 .or. haveInterface == 1) then
            do k =1, nVertLevels
@@ -1796,59 +1562,11 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
-
-        uMPIHaloUpdate(:,:) = uFirstStage(:,:)
-        hMPIHaloUpdate(:,:) = hFirstStage(:,:)
-        tracersMPIHaloUpdate(:,:,:) = tracersFirstStage(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
-
 call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'uMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'hMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'tracersMPIHaloUpdate')
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=3)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=3)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=3)
 call mpas_timer_stop("halo updates  LTS")
-
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-        call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
-
-        uFirstStage(:,:) = uMPIHaloUpdate(:,:)
-        hFirstStage(:,:) = hMPIHaloUpdate(:,:) 
-        tracersFirstStage(:,:,:) = tracersMPIHaloUpdate(:,:,:) 
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
 
 call mpas_timer_start("interface prediction LTS")
 call cpu_time(startInterface)
@@ -1859,8 +1577,6 @@ call cpu_time(startInterface)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-           call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-           call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
            call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -1870,17 +1586,18 @@ call cpu_time(startInterface)
            call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
            call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
-           call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
-           call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
  
            call mpas_pool_get_array(statePool, 'u', uOld, 1)
            call mpas_pool_get_array(statePool, 'h', hOld, 1)
            call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
+
            call mpas_pool_get_array(statePool, 'u', uNew, 2)
            call mpas_pool_get_array(statePool, 'h', hNew, 2)
            call mpas_pool_get_array(statePool, 'tracers', tracersNew, 2)
@@ -1933,17 +1650,17 @@ call cpu_time(startTendencies)
         block => domain % blocklist
         do while (associated(block))
            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
-           call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
+           call mpas_pool_get_subpool(block % structs, 'state', statePool)
 
            call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
            call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
            if(haveFine == 1 .or. haveInterface == 1) then
-           call sw_compute_solve_diagnostics(dt, firstStagePool, meshPool, 1) 
-           call sw_compute_tend(tendPool, firstStagePool, meshPool, 1) 
-           call sw_compute_scalar_tend(tendPool, firstStagePool, meshPool, 1) 
+           call sw_compute_solve_diagnostics(dt, statePool, meshPool, 3) 
+           call sw_compute_tend(tendPool, statePool, meshPool, 3) 
+           call sw_compute_scalar_tend(tendPool, statePool, meshPool, 3) 
            call sw_enforce_boundary_edge(tendPool, meshPool)
            end if
            block => block % next
@@ -1951,19 +1668,6 @@ call cpu_time(startTendencies)
 call cpu_time(finishTendencies)
 totalTimeTendencies = totalTimeTendencies + (finishTendencies - startTendencies)
 call mpas_timer_stop("tendencies LTS")
-
-!call mpas_timer_start("barrier time")
-!call cpu_time(startBarrier)
-!call MPI_Barrier(domain % dminfo % comm, err)
-!call cpu_time(finishBarrier)
-!totalTimeBarrier = totalTimeBarrier + (finishBarrier - startBarrier)
-!call mpas_timer_stop("barrier time")
-!call mpas_timer_start("halo updates  LTS")
-!        ! --- update halos for prognostic variables
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_u')
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_h')
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_tracers')
-!call mpas_timer_stop("halo updates  LTS")
 
 call mpas_timer_start("advance soln LTS")
 call cpu_time(startAdvance)
@@ -1975,8 +1679,6 @@ call cpu_time(startAdvance)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
            call mpas_pool_get_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
            call mpas_pool_get_subpool(block % structs, 'state', statePool)
-           call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-           call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
 
            call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
@@ -2004,13 +1706,13 @@ call cpu_time(startAdvance)
            call mpas_pool_get_array(statePool, 'h', hOld, 1)
            call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
 
-           call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-           call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+           call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
-           call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
            
            if(haveFine == 1 .or. haveInterface == 1) then
            do k =1, nVertLevels
@@ -2108,59 +1810,11 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
-
-        uMPIHaloUpdate(:,:) = uSecondStage(:,:)
-        hMPIHaloUpdate(:,:) = hSecondStage(:,:)
-        tracersMPIHaloUpdate(:,:,:) = tracersSecondStage(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
-
 call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'uMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'hMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'tracersMPIHaloUpdate')
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=4)
 call mpas_timer_stop("halo updates  LTS")
-
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-        call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
-
-        uSecondStage(:,:) = uMPIHaloUpdate(:,:)
-        hSecondStage(:,:) = hMPIHaloUpdate(:,:)
-        tracersSecondStage(:,:,:) = tracersMPIHaloUpdate(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
 
 ! --- copy second stage soln into old soln for the fine
 call mpas_timer_start("copy second stage soln into old soln  LTS")
@@ -2171,7 +1825,6 @@ call mpas_timer_start("copy second stage soln into old soln  LTS")
               call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
               call mpas_pool_get_subpool(block % structs, 'state', statePool)
               call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
-              call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
               call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -2181,17 +1834,13 @@ call mpas_timer_start("copy second stage soln into old soln  LTS")
               call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
               call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
 
-              call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-              call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-              call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
               call mpas_pool_get_array(statePool, 'u', uOld, 1)
               call mpas_pool_get_array(statePool, 'h', hOld, 1)
               call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
 
-              call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-              call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-              call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+              call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+              call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+              call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
 
               if(haveFine == 1) then
                  do k =1, nVertLevels
@@ -2207,42 +1856,15 @@ call mpas_timer_start("copy second stage soln into old soln  LTS")
                  end do
               end if
 
-              uMPIHaloUpdate(:,:) = uOld(:,:)
-              hMPIHaloUpdate(:,:) = hOld(:,:)
-              tracersMPIHaloUpdate(:,:,:) = tracersOld(:,:,:)
-
               block => block % next
            end do
 
 call mpas_timer_start("halo updates  LTS")
-           call mpas_dmpar_field_halo_exch(domain, 'uMPIHaloUpdate')
-           call mpas_dmpar_field_halo_exch(domain, 'hMPIHaloUpdate')
-           call mpas_dmpar_field_halo_exch(domain, 'tracersMPIHaloUpdate')
+           call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=1)
+           call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=1)
+           call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=1)
 call mpas_timer_stop("halo updates  LTS")
 
-call mpas_timer_start("copy for halo update  LTS")
-           ! BEGIN: copy for MPI halo update of the solution
-           block => domain % blocklist
-           do while (associated(block))
-              call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-              call mpas_pool_get_subpool(block % structs, 'state', statePool)
-
-              call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-              call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-              call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-              call mpas_pool_get_array(statePool, 'u', uOld, 1)
-              call mpas_pool_get_array(statePool, 'h', hOld, 1)
-              call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
-
-              uOld(:,:) = uMPIHaloUpdate(:,:)
-              hOld(:,:) = hMPIHaloUpdate(:,:)
-              tracersOld(:,:,:) = tracersMPIHaloUpdate(:,:,:)
-
-              block => block % next
-           end do
-          !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
 
          end if
 call mpas_timer_stop("copy second stage soln into old soln  LTS")
@@ -2258,8 +1880,6 @@ call cpu_time(startInterface)
               call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
               call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
               call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-              call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-              call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
               call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -2269,13 +1889,13 @@ call cpu_time(startInterface)
               call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
               call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
-              call mpas_pool_get_array(firstStagePool, 'u', uFirstStage, 1)
-              call mpas_pool_get_array(firstStagePool, 'h', hFirstStage, 1)
-              call mpas_pool_get_array(firstStagePool, 'tracers', tracersFirstStage, 1)
+              call mpas_pool_get_array(statePool, 'u', uFirstStage, 3)
+              call mpas_pool_get_array(statePool, 'h', hFirstStage, 3)
+              call mpas_pool_get_array(statePool, 'tracers', tracersFirstStage, 3)
 
-              call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-              call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-              call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+              call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+              call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+              call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
 
               call mpas_pool_get_array(statePool, 'u', uOld, 1)
               call mpas_pool_get_array(statePool, 'h', hOld, 1)
@@ -2330,17 +1950,17 @@ call cpu_time(startTendencies)
            block => domain % blocklist
            do while (associated(block))
               call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
-              call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
               call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
               call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
+              call mpas_pool_get_subpool(block % structs, 'state', statePool)
 
               call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
               call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
               if(haveFine == 1 .or. haveInterface == 1) then
-              call sw_compute_solve_diagnostics(dt, secondStagePool, meshPool, 1) 
-              call sw_compute_tend(tendPool, secondStagePool, meshPool, 1) 
-              call sw_compute_scalar_tend(tendPool, secondStagePool, meshPool, 1) 
+              call sw_compute_solve_diagnostics(dt, statePool, meshPool, 4) 
+              call sw_compute_tend(tendPool, statePool, meshPool, 4) 
+              call sw_compute_scalar_tend(tendPool, statePool, meshPool, 4) 
               call sw_enforce_boundary_edge(tendPool, meshPool)
               end if
               block => block % next
@@ -2348,19 +1968,6 @@ call cpu_time(startTendencies)
 call cpu_time(finishTendencies)
 totalTimeTendencies = totalTimeTendencies + (finishTendencies - startTendencies)
 call mpas_timer_stop("tendencies LTS")
-
-!call mpas_timer_start("barrier time")
-!call cpu_time(startBarrier)
-!call MPI_Barrier(domain % dminfo % comm, err)
-!call cpu_time(finishBarrier)
-!totalTimeBarrier = totalTimeBarrier + (finishBarrier - startBarrier)
-!call mpas_timer_stop("barrier time")
-!call mpas_timer_start("halo updates  LTS")
-!           ! --- update halos for prognostic variables
-!           call mpas_dmpar_field_halo_exch(domain, 'tend_u')
-!           call mpas_dmpar_field_halo_exch(domain, 'tend_h')
-!           call mpas_dmpar_field_halo_exch(domain, 'tend_tracers')
-!call mpas_timer_stop("halo updates  LTS")
 
 call mpas_timer_start("advance soln LTS")
 call cpu_time(startAdvance)
@@ -2372,7 +1979,6 @@ call cpu_time(startAdvance)
               call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
               call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
               call mpas_pool_get_subpool(block % structs, 'state', statePool)
-              call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
               call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
 
               call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
@@ -2392,9 +1998,9 @@ call cpu_time(startAdvance)
               call mpas_pool_get_array(tendSum3rdPool, 'h', hTendSum3rd)
               call mpas_pool_get_array(tendSum3rdPool, 'tracers', tracersTendSum3rd)
 
-              call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1) 
-              call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-              call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+              call mpas_pool_get_array(statePool, 'u', uSecondStage, 4) 
+              call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+              call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
 
               call mpas_pool_get_array(statePool, 'u', uOld, 1)
               call mpas_pool_get_array(statePool, 'h', hOld, 1)
@@ -2500,59 +2106,11 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'state', statePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(statePool, 'u', uOld, 1)
-        call mpas_pool_get_array(statePool, 'h', hOld, 1)
-        call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
-
-        uMPIHaloUpdate(:,:) = uOld(:,:)
-        hMPIHaloUpdate(:,:) = hOld(:,:)
-        tracersMPIHaloUpdate(:,:,:) = tracersOld(:,:,:)
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
-
 call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'uMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'hMPIHaloUpdate')
-     call mpas_dmpar_field_halo_exch(domain, 'tracersMPIHaloUpdate')
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=1)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=1)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=1)
 call mpas_timer_stop("halo updates  LTS")
-
-call mpas_timer_start("copy for halo update  LTS")
-     ! BEGIN: copy for MPI halo update of the solution
-     block => domain % blocklist
-     do while (associated(block))
-        call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-        call mpas_pool_get_subpool(block % structs, 'state', statePool)
-
-        call mpas_pool_get_array(LTSPool, 'uMPIHaloUpdate', uMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'hMPIHaloUpdate', hMPIHaloUpdate)
-        call mpas_pool_get_array(LTSPool, 'tracersMPIHaloUpdate', tracersMPIHaloUpdate)
-
-        call mpas_pool_get_array(statePool, 'u', uOld, 1)
-        call mpas_pool_get_array(statePool, 'h', hOld, 1)
-        call mpas_pool_get_array(statePool, 'tracers', tracersOld, 1)
-
-        uOld(:,:) = uMPIHaloUpdate(:,:)
-        hOld(:,:) = hMPIHaloUpdate(:,:) 
-        tracersOld(:,:,:) = tracersMPIHaloUpdate(:,:,:) 
-
-        block => block % next
-     end do
-     !END: copy for MPI halo update of the solution
-call mpas_timer_stop("copy for halo update  LTS")
 
         end if
 
@@ -2634,7 +2192,6 @@ call mpas_timer_start("copy soln into new soln LTS")
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
            call mpas_pool_get_subpool(block % structs, 'state', statePool)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
-           call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
            call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
 
@@ -2648,9 +2205,9 @@ call mpas_timer_start("copy soln into new soln LTS")
            call mpas_pool_get_array(statePool, 'h', hNew, 2)
            call mpas_pool_get_array(statePool, 'tracers', tracersNew, 2)
 
-           call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
 
            if(haveCoarse == 1) then
            do k =1, nVertLevels
@@ -2690,15 +2247,16 @@ call cpu_time(startTendencies)
         block => domain % blocklist
         do while (associated(block))
            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
-           call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+           call mpas_pool_get_subpool(block % structs, 'state', statePool)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
+
            call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
 
            if(haveCoarse == 1) then
-           call sw_compute_solve_diagnostics(dt, secondStagePool, meshPool, 1) 
-           call sw_compute_tend(tendPool, secondStagePool, meshPool, 1) 
-           call sw_compute_scalar_tend(tendPool, secondStagePool, meshPool, 1) 
+           call sw_compute_solve_diagnostics(dt, statePool, meshPool, 4) 
+           call sw_compute_tend(tendPool, statePool, meshPool, 4) 
+           call sw_compute_scalar_tend(tendPool, statePool, meshPool, 4) 
            call sw_enforce_boundary_edge(tendPool, meshPool)
            end if
            block => block % next
@@ -2706,19 +2264,6 @@ call cpu_time(startTendencies)
 call cpu_time(finishTendencies)
 totalTimeTendencies = totalTimeTendencies + (finishTendencies - startTendencies)
 call mpas_timer_stop("tendencies LTS")
-
-!call mpas_timer_start("barrier time")
-!call cpu_time(startBarrier)
-!call MPI_Barrier(domain % dminfo % comm, err)
-!call cpu_time(finishBarrier)
-!totalTimeBarrier = totalTimeBarrier + (finishBarrier - startBarrier)
-!call mpas_timer_stop("barrier time")
-!call mpas_timer_start("halo updates  LTS")
-!        ! --- update halos for prognostic variables
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_u')
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_h')
-!        call mpas_dmpar_field_halo_exch(domain, 'tend_tracers')
-!call mpas_timer_stop("halo updates  LTS")
 
 call mpas_timer_start("advance soln LTS")
 call cpu_time(startAdvance)
@@ -2729,7 +2274,6 @@ call cpu_time(startAdvance)
            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-           call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
 
            call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
   
@@ -2739,9 +2283,9 @@ call cpu_time(startAdvance)
            call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
            call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
 
-           call mpas_pool_get_array(secondStagePool, 'u', uSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'h', hSecondStage, 1)
-           call mpas_pool_get_array(secondStagePool, 'tracers', tracersSecondStage, 1)
+           call mpas_pool_get_array(statePool, 'u', uSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'h', hSecondStage, 4)
+           call mpas_pool_get_array(statePool, 'tracers', tracersSecondStage, 4)
 
            call mpas_pool_get_array(statePool, 'u', uOld, 1)
            call mpas_pool_get_array(statePool, 'h', hOld, 1)
@@ -2962,6 +2506,7 @@ call mpas_timer_start("clean-up time LTS")
         end if
 
         !call sw_compute_solve_diagnostics(dt, statePool, meshPool, 2)
+
 call mpas_timer_start("barrier time")
 call cpu_time(startBarrier)
 call MPI_Barrier(domain % dminfo % comm, err)
@@ -2981,20 +2526,14 @@ call mpas_timer_stop("last halo update  LTS")
 
      block => domain % blocklist
      do while(associated(block))
-        call mpas_pool_get_subpool(block % structs, 'first_stage_state', firstStagePool)
-        call mpas_pool_get_subpool(block % structs, 'second_stage_state', secondStagePool)
         call mpas_pool_get_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
         call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
         call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
 
-        call mpas_pool_destroy_pool(firstStagePool)
-        call mpas_pool_destroy_pool(secondStagePool)
         call mpas_pool_destroy_pool(tendSum1stPool)
         call mpas_pool_destroy_pool(tendSum2ndPool)
         call mpas_pool_destroy_pool(tendSum3rdPool)
 
-        call mpas_pool_remove_subpool(block % structs, 'first_stage_state')
-        call mpas_pool_remove_subpool(block % structs, 'second_stage_state')
         call mpas_pool_remove_subpool(block % structs, 'tend_sum_1st')
         call mpas_pool_remove_subpool(block % structs, 'tend_sum_2nd')
         call mpas_pool_remove_subpool(block % structs, 'tend_sum_3rd')
