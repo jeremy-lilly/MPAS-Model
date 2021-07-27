@@ -244,30 +244,30 @@
                         <var name="LTSRegionLocal" />
 		</stream>
 	</streams>
-	<var_struct name="state" time_levs="2">
-		<var name="xtime" type="text" dimensions="Time" />
-		<var name="u" type="real" dimensions="nVertLevels nEdges Time" />
-		<var name="h" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="tracers" type="real" dimensions="nTracers nVertLevels nCells Time" />
-		<var name="v" type="real" dimensions="nVertLevels nEdges Time" />
-		<var name="divergence" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="vorticity" type="real" dimensions="nVertLevels nVertices Time" />
-		<var name="vorticity_cell" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="pv_edge" type="real" dimensions="nVertLevels nEdges Time" />
-		<var name="h_edge" type="real" dimensions="nVertLevels nEdges Time" />
-		<var name="ke" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="pv_vertex" type="real" dimensions="nVertLevels nVertices Time" />
-		<var name="pv_cell" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="uReconstructX" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="uReconstructY" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="uReconstructZ" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="uReconstructZonal" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="uReconstructMeridional" type="real" dimensions="nVertLevels nCells Time" />
-		<var name="vh" type="real" dimensions="nVertLevels nEdges Time" />
-		<var name="circulation" type="real" dimensions="nVertLevels nVertices Time" />
-		<var name="gradPVt" type="real" dimensions="nVertLevels nEdges Time" />
-		<var name="gradPVn" type="real" dimensions="nVertLevels nEdges Time" />
-		<var name="h_vertex" type="real" dimensions="nVertLevels nVertices Time" />
+	<var_struct name="state" time_levs="4">
+		<var name="xtime"                             type="text"     dimensions="Time"/>
+		<var name="u"                                 type="real"     dimensions="nVertLevels nEdges Time"/>
+		<var name="h"                                 type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="tracers"                           type="real"     dimensions="nTracers nVertLevels nCells Time"/>
+		<var name="v"                                 type="real"     dimensions="nVertLevels nEdges Time"/>
+		<var name="divergence"                        type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="vorticity"                         type="real"     dimensions="nVertLevels nVertices Time"/>
+		<var name="vorticity_cell"                    type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="pv_edge"                           type="real"     dimensions="nVertLevels nEdges Time"/>
+		<var name="h_edge"                            type="real"     dimensions="nVertLevels nEdges Time"/>
+		<var name="ke"                                type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="pv_vertex"                         type="real"     dimensions="nVertLevels nVertices Time"/>
+		<var name="pv_cell"                           type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="uReconstructX"                     type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="uReconstructY"                     type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="uReconstructZ"                     type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="uReconstructZonal"                 type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="uReconstructMeridional"            type="real"     dimensions="nVertLevels nCells Time"/>
+		<var name="vh"                                type="real"     dimensions="nVertLevels nEdges Time"/>
+		<var name="circulation"                       type="real"     dimensions="nVertLevels nVertices Time"/>
+		<var name="gradPVt"                           type="real"     dimensions="nVertLevels nEdges Time"/>
+		<var name="gradPVn"                           type="real"     dimensions="nVertLevels nEdges Time"/>
+		<var name="h_vertex"                          type="real"     dimensions="nVertLevels nVertices Time"/>
 	</var_struct>
 	<var_struct name="mesh" time_levs="1">
 		<var name="mpiRankCell" type="integer" dimensions="nCells" />

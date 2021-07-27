@@ -333,7 +333,7 @@ module sw_core
    
               !call mpas_timer_start("global_diagnostics")
               !call sw_compute_global_diagnostics(domain % dminfo, &
-              !         statePool, meshPool, itimestep, dt, 2)
+              !        statePool, meshPool, itimestep, dt, 2)
               !call mpas_timer_stop("global_diagnostics")
           end if
       end if
