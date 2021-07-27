@@ -26,6 +26,7 @@ def main(outDir,
          fineRadius,
          disableOutput,
          modelDebug,
+         modelOnly,
          doLTS2,
          doRK4):
 
@@ -45,59 +46,68 @@ def main(outDir,
         os.makedirs(outDir)
 
 
-    # -- BEGIN --
-    # mesh generation and MPI partitioning
-    
-    os.chdir(outDir)
-
-    print('\n\n\n--- Building base mesh...\n\n\n')
-    build_base_mesh(baseMesh, coarseRes, fineRes, fineRadius, True)
-    print('\n\n\n--- Done\n\n\n')
-
-    print('\n\n\n--- Converting ' + baseMesh + ' to a MPAS mesh...\n\n\n')
-    shCommand = 'MpasMeshConverter.x ' + baseMesh
-    sp.call(shCommand.split())
-
-    shCommand = 'mv graph.info ' + graphInfo
-    sp.call(shCommand.split())
-    print('\n\n\n--- Done\n\n\n')
-
-    if not doRK4:
-        print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
-        nFineCells, nCoarseCells, areaRatio, numberRatio = weight_graph(baseMesh, 
-                                                                        graphInfo, 
-                                                                        numInterface, 
-                                                                        coarseRegionDist, 
-                                                                        doLTS2)
-        print('\n\n\n--- Done\n\n\n')
-    else:
-        nCoarseCells = areaRatio = numberRatio = -1
-
-        shCommand = 'wc ' + graphInfo
-        wcOut = sp.check_output(shCommand.split())
-        wcOut = wcOut.split()
-        nFineCells = int(wcOut[0]) - 1
-    # END if
-
-    print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
     if multiBlocks:
         numBlocks = 3 * numProcs
     else:
         numBlocks = numProcs
 
-    shCommand = 'gpmetis ' + graphInfo + ' ' + str(numBlocks)
-    sp.call(shCommand.split())
-    print('\n\n\n--- Done\n\n\n')
 
-    if multiBlocks and not doRK4:
-        print('\n\n\n--- Resorting cells so that each MPI block only has one \
-              type of cell--fine, interface, or coarse...\n\n\n')
-        partition_graph(baseMesh, graphInfo, numBlocks)
+    if not modelOnly:
+
+        # -- BEGIN --
+        # mesh generation and MPI partitioning
+        
+        os.chdir(outDir)
+
+        print('\n\n\n--- Building base mesh...\n\n\n')
+        build_base_mesh(baseMesh, coarseRes, fineRes, fineRadius, True)
         print('\n\n\n--- Done\n\n\n')
-    # END if
 
-    # mesh generation and MPI partitioning
-    # -- END --
+        print('\n\n\n--- Converting ' + baseMesh + ' to a MPAS mesh...\n\n\n')
+        shCommand = 'MpasMeshConverter.x ' + baseMesh
+        sp.call(shCommand.split())
+
+        shCommand = 'mv graph.info ' + graphInfo
+        sp.call(shCommand.split())
+        print('\n\n\n--- Done\n\n\n')
+
+        if not doRK4:
+            print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
+            nFineCells, nCoarseCells, areaRatio, numberRatio = weight_graph(baseMesh, 
+                                                                            graphInfo, 
+                                                                            numInterface, 
+                                                                            coarseRegionDist, 
+                                                                            doLTS2)
+            print('\n\n\n--- Done\n\n\n')
+        else:
+            nCoarseCells = areaRatio = numberRatio = -1
+
+            shCommand = 'wc ' + graphInfo
+            wcOut = sp.check_output(shCommand.split())
+            wcOut = wcOut.split()
+            nFineCells = int(wcOut[0]) - 1
+        # END if
+
+        print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
+        
+        shCommand = 'gpmetis ' + graphInfo + ' ' + str(numBlocks)
+        sp.call(shCommand.split())
+        print('\n\n\n--- Done\n\n\n')
+
+        if multiBlocks and not doRK4:
+            print('\n\n\n--- Resorting cells so that each MPI block only has one \
+                  type of cell--fine, interface, or coarse...\n\n\n')
+            partition_graph(baseMesh, graphInfo, numBlocks)
+            print('\n\n\n--- Done\n\n\n')
+        # END if
+
+        # mesh generation and MPI partitioning
+        # -- END --
+    
+    else:
+        nFineCells = nCoarseCells = areaRatio = numberRatio = -1
+    
+    # END if
 
 
     # -- BEGIN --
@@ -389,6 +399,14 @@ if __name__ == '__main__':
                         action='store_true',
                         help='Compile the model with DEBUG=true.')
 
+    parser.add_argument('--model-only', dest='model_only',
+                        action='store_true',
+                        help='Skip mesh generation and only build/configure \
+                        the model. Note that in this case, nFineCells, \
+                        nCoarseCells, areaRatio, and countRatio will be \
+                        set to -1 in parameterList.txt since these are \
+                        calculated during mesh generation.')
+
 
     time_stepping_grp = parser.add_mutually_exclusive_group()
 
@@ -427,6 +445,7 @@ if __name__ == '__main__':
          args.fine_radius,
          args.disable_output,
          args.model_debug,
+         args.model_only,
          args.do_lts2,
          args.do_rk4)
 
