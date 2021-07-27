@@ -24,6 +24,8 @@ def main(outDir,
          coarseRes,
          fineRes,
          fineRadius,
+         runtime,
+         nVertLevels,
          disableOutput,
          modelDebug,
          modelOnly,
@@ -162,7 +164,7 @@ def main(outDir,
         elif name == 'nLTSHalosPExtra':
             dim.set('definition', str(nLTSHalosCopy))
         elif name == 'nVertLevels':
-            dim.set('definition', str(100))  # TODO
+            dim.set('definition', str(nVertLevels))
 
     registryVarStructs = registryRoot.findall('var_struct')
     for vs in registryVarStructs:
@@ -215,7 +217,7 @@ def main(outDir,
                 words[-1] = "'" + '0001-01-01_00:00:00' + "'"
                 newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_run_duration' in words:
-                words[-1] = "'" + '00:30:00' + "'"  # TODO
+                words[-1] = "'" + runtime + "'"
                 newTxt += '    ' + ' '.join(words) + '\n'
             elif 'config_block_decomp_file_prefix' in words:
                 words[-1] = "'" + graphInfo + '.part.' + "'"
@@ -251,7 +253,7 @@ def main(outDir,
         elif name == 'output':
             element.set('type', modelOutput)
             element.set('clobber_mode', 'truncate')
-            element.set('output_interval', '00:30:00')  # TODO
+            element.set('output_interval', '00:30:00')
     
     streamsTree.write(streamsXML) 
     print('\n\n\n--- Done\n\n\n')
@@ -280,6 +282,8 @@ def main(outDir,
     paraTxt += 'coarseRes = ' + str(coarseRes) + '\n'
     paraTxt += 'fineRes = ' + str(fineRes) + '\n'
     paraTxt += 'fineRadius = ' + str(fineRadius) + '\n'
+    paraTxt += 'runtime = ' + runtime + '\n'
+    paraTxt += 'nVertLevels = ' + str(nVertLevels) + '\n'
     paraTxt += 'disableOutput = ' + str(disableOutput) + '\n'
     paraTxt += 'modelDebug = ' + str(modelDebug) + '\n'
     paraTxt += 'doLTS2 = ' + str(doLTS2) + '\n'
@@ -390,6 +394,15 @@ if __name__ == '__main__':
                         help='Radius around the mountain to place cells with \
                         the fine resolution. Default is 400.')
 
+    parser.add_argument('-t', '--runtime', dest='runtime',
+                        type=str, default='00:30:00',
+                        help='Simulation time. Format is hh:mm:ss. \
+                        Default is 00:30:00.')
+
+    parser.add_argument('-v', '--n-vert-levels', dest='n_vert_levels',
+                        type=int, default=100,
+                        help='Number of vertical layers. Default is 100.')
+
     parser.add_argument('--disable-output', dest='disable_output',
                         action='store_true',
                         help='Configure `streams.sw` to forgo producing \
@@ -443,6 +456,8 @@ if __name__ == '__main__':
          args.coarse_res,
          args.fine_res,
          args.fine_radius,
+         args.runtime,
+         args.n_vert_levels,
          args.disable_output,
          args.model_debug,
          args.model_only,
