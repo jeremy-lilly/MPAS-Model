@@ -49,7 +49,7 @@ def main(outDir,
 
 
     if multiBlocks:
-        numBlocks = 3 * numProcs
+        numBlocks = [3 * num for num in numProcs]
     else:
         numBlocks = numProcs
 
@@ -91,15 +91,18 @@ def main(outDir,
         # END if
 
         print('\n\n\n--- Partitioning cells across MPI blocks with gpmetis...\n\n\n')
-        
-        shCommand = 'gpmetis ' + graphInfo + ' ' + str(numBlocks)
-        sp.call(shCommand.split())
+        for num in numBlocks:
+            print('\tPartitioning for ' + str(num) + ' blocks...')
+            shCommand = 'gpmetis ' + graphInfo + ' ' + str(num)
+            sp.call(shCommand.split())
         print('\n\n\n--- Done\n\n\n')
 
         if multiBlocks and not doRK4:
             print('\n\n\n--- Resorting cells so that each MPI block only has one \
                   type of cell--fine, interface, or coarse...\n\n\n')
-            partition_graph(baseMesh, graphInfo, numBlocks)
+            for num in numBlocks:
+                print('\tResorting for ' + str(num) + ' blocks...')
+                partition_graph(baseMesh, graphInfo, num)
             print('\n\n\n--- Done\n\n\n')
         # END if
 
@@ -345,8 +348,9 @@ if __name__ == '__main__':
                         `sw_model`.')
 
     parser.add_argument('-n', '--num-procs', dest='num_procs',
-                        default=128, type=int,
-                        help='Number of MPI processors to config for. Default \
+                        default=128, type=int, nargs='+',
+                        help='Number of MPI processors to config for. Can \
+                        pass multiple arguments e.g. `-n 4 8 16 32`. Default \
                         is 128.')
 
     parser.add_argument('-k', '--multi-blocks-per-proc', dest='multi_blocks',
