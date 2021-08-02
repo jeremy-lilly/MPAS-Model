@@ -17,7 +17,7 @@ def main(outDir,
          model,
          numProcs,
          multiBlocks,
-         numInterface,
+         numInterfaceLayers,
          coarseRegionDist,
          coarseDT,
          fineM,
@@ -77,7 +77,7 @@ def main(outDir,
             print('\n\n\n--- Weighting ' + graphInfo + ' for LTS regions...\n\n\n')
             nFineCells, nCoarseCells, areaRatio, numberRatio = weight_graph(baseMesh, 
                                                                             graphInfo, 
-                                                                            numInterface, 
+                                                                            numInterfaceLayers, 
                                                                             coarseRegionDist, 
                                                                             doLTS2)
             print('\n\n\n--- Done\n\n\n')
@@ -130,8 +130,8 @@ def main(outDir,
         LTSX = 'LTS3'
         useLTS = 'true'
 
-    if numInterface != 1:
-        nLTSHalosCopy = (nLTSHalos - 1) + numInterface
+    if numInterfaceLayers != 1:
+        nLTSHalosCopy = (nLTSHalos - 1) + numInterfaceLayers
         moreCellsOnInterface = 1
     else:
         nLTSHalosCopy = nLTSHalos
@@ -275,7 +275,7 @@ def main(outDir,
     paraTxt += 'numProcs = ' + str(numProcs) + '\n'
     paraTxt += 'multiBlocks = ' + str(multiBlocks) + '\n'
     paraTxt += 'numBlocks = ' + str(numBlocks) + '\n'
-    paraTxt += 'numInterface = ' + str(numInterface) + '\n'
+    paraTxt += 'numInterfaceLayers = ' + str(numInterface) + '\n'
     paraTxt += 'coarseDT = ' + str(coarseDT) + '\n'
     paraTxt += 'coarseRegionDist = ' + str(coarseRegionDist) + '\n'
     paraTxt += 'fineM = ' + str(fineM) + '\n'
