@@ -275,7 +275,7 @@ def main(outDir,
     paraTxt += 'numProcs = ' + str(numProcs) + '\n'
     paraTxt += 'multiBlocks = ' + str(multiBlocks) + '\n'
     paraTxt += 'numBlocks = ' + str(numBlocks) + '\n'
-    paraTxt += 'numInterfaceLayers = ' + str(numInterface) + '\n'
+    paraTxt += 'numInterfaceLayers = ' + str(numInterfaceLayers) + '\n'
     paraTxt += 'coarseDT = ' + str(coarseDT) + '\n'
     paraTxt += 'coarseRegionDist = ' + str(coarseRegionDist) + '\n'
     paraTxt += 'fineM = ' + str(fineM) + '\n'
