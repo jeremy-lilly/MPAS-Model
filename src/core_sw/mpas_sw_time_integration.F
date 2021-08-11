@@ -1398,6 +1398,12 @@ totalTimeInterface = totalTimeInterface + (finishInterface - startInterface)
 call mpas_timer_stop("interface prediction LTS")
 
 call mpas_timer_start("halo updates  LTS")
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=1)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=1)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=1)
+call mpas_timer_stop("halo updates  LTS")
+
+call mpas_timer_start("halo updates  LTS")
         ! --- update halos for diagnostic variables
 
         if (config_h_mom_eddy_visc4 > 0.0) then
@@ -1562,12 +1568,6 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=3)
-     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=3)
-     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=3)
-call mpas_timer_stop("halo updates  LTS")
-
 call mpas_timer_start("interface prediction LTS")
 call cpu_time(startInterface)
         ! --- interpolate interface layer 1 values (this is the actual interface prediction) and store soln first stage in soln new
@@ -1634,6 +1634,12 @@ call cpu_time(startInterface)
 call cpu_time(finishInterface)
 totalTimeInterface = totalTimeInterface + (finishInterface - startInterface)
 call mpas_timer_stop("interface prediction LTS")
+
+call mpas_timer_start("halo updates  LTS")
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=3)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=3)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=3)
+call mpas_timer_stop("halo updates  LTS")
 
 call mpas_timer_start("halo updates  LTS")
         ! --- update halos for diagnostic variables
@@ -1810,15 +1816,11 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=4)
-     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=4)
-     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=4)
-call mpas_timer_stop("halo updates  LTS")
+       if(lts_order == 2) then
+
 
 ! --- copy second stage soln into old soln for the fine
 call mpas_timer_start("copy second stage soln into old soln  LTS")
-        if(lts_order == 2) then
 
            block => domain % blocklist
            do while (associated(block))
@@ -1866,8 +1868,8 @@ call mpas_timer_start("halo updates  LTS")
 call mpas_timer_stop("halo updates  LTS")
 
 
-         end if
 call mpas_timer_stop("copy second stage soln into old soln  LTS")
+         end if
 
         if (lts_order == 3) then
 
@@ -1934,6 +1936,12 @@ call cpu_time(startInterface)
 call cpu_time(finishInterface)
 totalTimeInterface = totalTimeInterface + (finishInterface - startInterface)
 call mpas_timer_stop("interface prediction LTS")
+
+call mpas_timer_start("halo updates  LTS")
+     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=4)
+     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=4)
+call mpas_timer_stop("halo updates  LTS")
 
 call mpas_timer_start("halo updates  LTS")
            ! --- update halos for diagnostic variables
@@ -2106,11 +2114,6 @@ call cpu_time(finishAdvance)
 totalTimeAdvance = totalTimeAdvance + (finishAdvance - startAdvance)
 call mpas_timer_stop("advance soln LTS")
 
-call mpas_timer_start("halo updates  LTS")
-     call mpas_dmpar_field_halo_exch(domain, 'u', timeLevel=1)
-     call mpas_dmpar_field_halo_exch(domain, 'h', timeLevel=1)
-     call mpas_dmpar_field_halo_exch(domain, 'tracers', timeLevel=1)
-call mpas_timer_stop("halo updates  LTS")
 
         end if
 
