@@ -378,7 +378,7 @@ contains
               inSituThermalExpansionCoeff,inSituSalineContractionCoeff)
       endif
 
-      if (config_use_tidal_potential_forcing .and. config_time_integrator == 'RK4') then
+      if (config_use_tidal_potential_forcing .and. (config_time_integrator == 'RK4' .or. config_time_integrator == 'SSPRK3' .or. config_time_integrator == 'LTS3')) then
         ! point zMid back to usual array, to be safe
         call mpas_pool_get_array(diagnosticsPool, 'zMid', zMid)
       end if
