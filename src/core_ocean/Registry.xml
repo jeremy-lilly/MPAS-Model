@@ -1432,6 +1432,7 @@
 			<var name="fEdge"/>
 			<var name="fVertex"/>
 			<var name="fCell"/>
+			<var name="LTSRegionLocal"/>
 		</stream>
 
 		<stream name="output_init"
