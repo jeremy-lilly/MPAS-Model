@@ -1018,7 +1018,18 @@
 					description="Dimensionless bottom drag coefficient, $c_{drag}$."
 					possible_values="any positive real, typically 1.0e-3"
 		/>
+    </nml_record>
+    <nml_record name="explicit_Rayleigh_drag" mode="forward">
+		<nml_option name="config_use_explicit_Rayleigh_drag" type="logical" default_value=".false." units="unitless"
+					description="If true, explicit Rayleigh drag is used on the momentum equation."
+					possible_values=".true. or .false."
+		/>
+		<nml_option name="config_explicit_Rayleigh_drag_coeff" type="real" default_value="1.0e-3" units="unitless"
+					description="Dimensionless Rayleigh drag coefficient, $R_{drag}$."
+					possible_values="any positive real, typically 1.0e-4"
+		/>
 	</nml_record>
+
 	<nml_record name="wetting_drying" mode="init;forward">
 		<nml_option name="config_use_wetting_drying" type="logical" default_value=".false." units="unitless"
 					description="If true, use wetting and drying algorithm to allow for dry cells to config_min_cell_height."
@@ -1268,6 +1279,10 @@
 		/>
 		<nml_option name="config_disable_vel_explicit_bottom_drag" type="logical" default_value=".false." units="unitless"
 					description="Disables tendencies on the velocity field from explicit bottom drag"
+					possible_values=".true. or .false."
+        />
+        <nml_option name="config_disable_vel_explicit_Rayleigh_drag" type="logical" default_value=".false." units="unitless"
+					description="Disables tendencies on the velocity field from explicit Rayleigh drag"
 					possible_values=".true. or .false."
 		/>
 		<nml_option name="config_disable_vel_vmix" type="logical" default_value=".false." units="unitless"
