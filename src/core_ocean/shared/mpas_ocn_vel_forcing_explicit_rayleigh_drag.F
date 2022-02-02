@@ -7,27 +7,25 @@
 !
 !|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 !
-!  ocn_vel_forcing
+!  ocn_vel_forcing_explicit_rayleigh_drag
 !
-!> \brief MPAS ocean forcing driver
-!> \author Doug Jacobsen, Mark Petersen, Todd Ringler
-!> \date   September 2011
+!> \brief MPAS ocean explicit Rayleigh drag
+!> \author Mark Petersen
+!> \date   August 2017
 !> \details
-!>  This module contains the main driver routine for computing
-!>  tendencies from forcings.
+!>  This module contains the routine for computing
+!>  tendencies from explicit Rayleigh drag.
 !
 !-----------------------------------------------------------------------
 
-module ocn_vel_forcing
+module ocn_vel_forcing_explicit_rayleigh_drag
 
    use mpas_derived_types
+   use mpas_pool_routines
+   use mpas_timer
 
    use ocn_constants
    use ocn_forcing
-
-   use ocn_vel_forcing_surface_stress
-   use ocn_vel_forcing_explicit_bottom_drag
-   use ocn_vel_forcing_explicit_rayleigh_drag
 
    implicit none
    private
@@ -45,8 +43,8 @@ module ocn_vel_forcing
    !
    !--------------------------------------------------------------------
 
-   public :: ocn_vel_forcing_tend, &
-             ocn_vel_forcing_init
+   public :: ocn_vel_forcing_explicit_rayleigh_drag_tend, &
+             ocn_vel_forcing_explicit_rayleigh_drag_init
 
    !--------------------------------------------------------------------
    !
@@ -54,6 +52,8 @@ module ocn_vel_forcing
    !
    !--------------------------------------------------------------------
 
+   logical :: explicitRayleighDragOn
+   real (kind=RKIND) :: explicitRayleighDragCoef
 
 !***********************************************************************
 
@@ -61,23 +61,19 @@ contains
 
 !***********************************************************************
 !
-!  routine ocn_vel_forcing_tend
+!  routine ocn_vel_forcing_explicit_rayleigh_drag_tend
 !
-!> \brief   Computes tendency term from forcings
-!> \author  Doug Jacobsen, Mark Petersen, Todd Ringler
-!> \date    15 September 2011
+!> \brief   Computes tendency term from explicit Rayleigh drag
+!> \author  Mark Petersen
+!> \date    15 August 2017
 !> \details
-!>  This routine computes the forcing tendency for momentum
-!>  based on current state and user choices of forcings.
-!>  Multiple forcings may be chosen and added together.  These
-!>  tendencies are generally computed by calling the specific routine
-!>  for the chosen forcing, so this routine is primarily a
-!>  driver for managing these choices.
+!>  This routine computes the explicit Rayleigh drag tendency for momentum
+!>  based on current state.
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vel_forcing_tend(meshPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
-                                   surfaceStress, kineticEnergyCell, layerThicknessEdge, tend, err)!{{{
+   subroutine ocn_vel_forcing_explicit_rayleigh_drag_tend(meshPool, normalVelocity, & !{{{
+                                     tend, err)
 
       !-----------------------------------------------------------------
       !
@@ -86,15 +82,7 @@ contains
       !-----------------------------------------------------------------
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
-         normalVelocity, &    !< Input: Normal velocity at edges
-         kineticEnergyCell        !< Input: kinetic energy at cell
-
-      real (kind=RKIND), dimension(:), intent(in) :: &
-         surfaceFluxAttenuationCoefficient, & !< Input: attenuation coefficient for surface fluxes at cell centers
-         surfaceStress     !< Input: surface stress at edges
-
-      real (kind=RKIND), dimension(:,:), intent(in) :: &
-         layerThicknessEdge     !< Input: thickness at edge
+         normalVelocity    !< Input: velocity
 
       type (mpas_pool_type), intent(in) :: &
          meshPool          !< Input: mesh information
@@ -122,52 +110,57 @@ contains
       !
       !-----------------------------------------------------------------
 
-      integer :: err1
-
-      !-----------------------------------------------------------------
-      !
-      ! call relevant routines for computing tendencies
-      ! note that the user can choose multiple options and the
-      !   tendencies will be added together
-      !
-      !-----------------------------------------------------------------
+      integer :: iEdge, k, nEdges
+      integer, dimension(:), pointer :: nEdgesArray
+      integer, dimension(:), pointer :: maxLevelEdgeTop
+      integer, dimension(:,:), pointer :: cellsOnEdge
 
       err = 0
 
-      call ocn_vel_forcing_surface_stress_tend(meshPool, surfaceFluxAttenuationCoefficient, &
-                                               surfaceStress, layerThicknessEdge, tend, err1)
-      err = ior(err, err1)
+      if ( .not. explicitRayleighDragOn ) return
 
-      call ocn_vel_forcing_explicit_bottom_drag_tend(meshPool, normalVelocity, &
-              kineticEnergyCell, layerThicknessEdge, tend, err1)
+      call mpas_timer_start('vel explicit rayleigh drag')
 
-      err = ior(err, err1)
-      
-      call ocn_vel_forcing_explicit_rayleigh_drag_tend(meshPool, normalVelocity, &
-              tend, err1)
+      call mpas_pool_get_dimension(meshPool, 'nEdgesArray', nEdgesArray)
+      call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
 
-      err = ior(err, err1)
+      nEdges = nEdgesArray( 1 )
+
+      !$omp do schedule(runtime) private(k, cell1, cell2)
+      do iEdge = 1, nEdges
+        k =  maxLevelEdgeTop(iEdge)
+
+        ! Explicit Rayleigh drag term:
+        ! du/dt = ... - R u
+        ! appied to bottom layer only.
+        ! This term comes from the Rayleigh boundary condition in the vertical
+        ! momentum mixing 
+
+        tend(k,iEdge) = tend(k,iEdge) - explicitRayleighDragCoef * &
+           normalVelocity(k,iEdge) 
+      enddo
+      !$omp end do
+
+      call mpas_timer_stop('vel explicit rayleigh drag')
 
    !--------------------------------------------------------------------
 
-   end subroutine ocn_vel_forcing_tend!}}}
+   end subroutine ocn_vel_forcing_explicit_rayleigh_drag_tend!}}}
 
 !***********************************************************************
 !
-!  routine ocn_vel_forcing_init
+!  routine ocn_vel_forcing_explicit_rayleigh_drag_init
 !
-!> \brief   Initializes ocean forcings
-!> \author  Doug Jacobsen, Mark Petersen, Todd Ringler
-!> \date    September 2011
+!> \brief   Initializes ocean explicit Rayleigh drag forcing
+!> \author  Mark Petersen
+!> \date    August 2017
 !> \details
-!>  This routine initializes quantities related to forcings
-!>  in the ocean. Since a multiple forcings are available,
-!>  this routine primarily calls the
-!>  individual init routines for each forcing.
+!>  This routine initializes quantities related to explicit Rayleigh drag
+!>  in the ocean.
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vel_forcing_init(err)!{{{
+   subroutine ocn_vel_forcing_explicit_rayleigh_drag_init(err)!{{{
 
    !--------------------------------------------------------------------
 
@@ -179,21 +172,32 @@ contains
 
       integer, intent(out) :: err !< Output: error flag
 
-      integer :: err1, err2
+      logical, pointer :: config_disable_vel_explicit_Rayleigh_drag
+      logical, pointer :: config_use_explicit_Rayleigh_drag
+      real (kind=RKIND), pointer :: config_explicit_Rayleigh_drag_coeff
 
-      call ocn_vel_forcing_surface_stress_init(err1)
-      call ocn_vel_forcing_explicit_bottom_drag_init(err2)
-      call ocn_vel_forcing_explicit_rayleigh_drag_init(err2)
+      err = 0
 
-      err = ior(err1, err2)
+      call mpas_pool_get_config(ocnConfigs, 'config_use_explicit_Rayleigh_drag', config_use_explicit_Rayleigh_drag)
+      call mpas_pool_get_config(ocnConfigs, 'config_explicit_Rayleigh_drag_coeff', config_explicit_Rayleigh_drag_coeff)
+      call mpas_pool_get_config(ocnConfigs, 'config_disable_vel_explicit_Rayleigh_drag', config_disable_vel_explicit_Rayleigh_drag)
+
+      explicitRayleighDragCoef = 0.0_RKIND
+
+      if (config_use_explicit_Rayleigh_drag) then
+          explicitRayleighDragOn = .true.
+          explicitRayleighDragCoef = config_explicit_Rayleigh_drag_coeff
+      endif
+
+      if (config_disable_vel_explicit_Rayleigh_drag) explicitRayleighDragOn = .false.
 
    !--------------------------------------------------------------------
 
-   end subroutine ocn_vel_forcing_init!}}}
+   end subroutine ocn_vel_forcing_explicit_rayleigh_drag_init!}}}
 
 !***********************************************************************
 
-end module ocn_vel_forcing
+end module ocn_vel_forcing_explicit_rayleigh_drag
 
 !|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 ! vim: foldmethod=marker
