@@ -8,14 +8,15 @@ import xarray as xr
 import argparse as ap
 import math
 import time
+import netCDF4 as nc
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
 
-def main(base_mesh, graph_info, num_interface):
+def main(mesh, graph_info, num_interface):
 
     # read in mesh data
-    ds = xr.open_dataset(base_mesh)
+    ds = xr.open_dataset(mesh)
     nCells = ds['nCells'].size
     nEdges = ds['nEdges'].size
     areaCell = ds['areaCell'].values
@@ -226,21 +227,27 @@ def main(base_mesh, graph_info, num_interface):
     ### create lts_mesh.nc
     #####
 
-    print('Creating lts_mesh.nc...')
+    print('Adding LTSRegionLocal to ' + mesh + '...')
 
-    LTSDataArray = xr.DataArray(LTSRegion)
-    LTSDict = {'LTSRegionLocal': (['nCells'], LTSDataArray.data)}
-    LTSds = xr.Dataset(LTSDict)
-
-    encodingDict = {'LTSRegionLocal': {'_FillValue': -1}}
+    # open mesh nc file to be appended
+    meshNC = nc.Dataset(mesh, 'a', format='NETCDF4_64BIT_OFFSET')
     
-    combined = xr.merge([ds, LTSds], combine_attrs='drop_conflicts')
-    combined.to_netcdf(path='lts_mesh.nc', 
-                       encoding=encodingDict,
-                       format='NETCDF3_64BIT')
+    try:
+        # try to get LTSRegionLocal and assign new value
+        ltsRegionNC = meshNC.variables['LTSRegionLocal']
+        ltsRegionNC[:] = LTSRegion[:]
+    except:
+        # create new variable
+        nCellsNC = meshNC.dimensions['nCells'].name
+        ltsRegionsNC = meshNC.createVariable('LTSRegionLocal', np.int32, (nCellsNC,))
 
-    shCommand = 'paraview_vtk_field_extractor.py -f lts_mesh.nc \
-                 -v allOnCells,allOnEdges -d TWO= maxEdges=  maxEdges2= \
+        #set new variable
+        ltsRegionsNC[:] = LTSRegion[:]
+    # END try
+    meshNC.close()
+
+    shCommand = 'paraview_vtk_field_extractor.py --ignore_time \
+                 -d maxEdges=0 -v allOnCells -f ' + mesh + ' \
                  -o lts_mesh_vtk'
     sp.call(shCommand.split())
 
@@ -276,7 +283,7 @@ def main(base_mesh, graph_info, num_interface):
         # END for
     # END with
         
-    with open(graph_info, 'w') as f:
+    with open(graph_info + '.lts', 'w') as f:
         f.write(newf)
 
     areaRatio = max(areaCell) / min(areaCell)
@@ -299,7 +306,9 @@ if __name__ == '__main__':
     # If called as a primary module, run main
 
     parser = ap.ArgumentParser(description='Python script to label the cells \
-                               from a given MPAS mesh for LTS.')
+                               from a given MPAS mesh for LTS. Adds LTSRegionLocal \
+                               to the specified netCDF file containing the mesh \
+                               and creates a graph.info file weighted for LTS.')
 
     parser.add_argument('-m', '--mesh', dest='mesh',
                         default='culled_mesh.nc',
