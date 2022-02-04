@@ -25,8 +25,6 @@ module ocn_vel_forcing_topographic_wave_drag
    use mpas_timer
 
    use ocn_constants
-   use ocn_mesh
-   use ocn_diagnostics_variables
    use ocn_forcing
 
    implicit none
@@ -74,8 +72,8 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vel_forcing_topographic_wave_drag_tend(normalVelocity, & !{{{
-                     tend, err)
+   subroutine ocn_vel_forcing_topographic_wave_drag_tend(meshPool, diagnosticsPool, & !{{{
+                                     normalVelocity, tend, err)
 
       !-----------------------------------------------------------------
       !
@@ -86,7 +84,13 @@ contains
       real (kind=RKIND), dimension(:,:), intent(in) :: &
          normalVelocity   !< Input: velocity
 
-      !-----------------------------------------------------------------
+      type (mpas_pool_type), intent(in) :: &
+         meshPool          !< Input: mesh information
+
+      type (mpas_pool_type), intent(in) :: &
+         diagnosticsPool          !< Input: diagnostic information
+     
+     !-----------------------------------------------------------------
       !
       ! input/output variables
       !
@@ -109,15 +113,25 @@ contains
       !
       !-----------------------------------------------------------------
 
-      integer :: iEdge, k
+      integer :: iEdge, k, nEdges
+      integer, dimension(:), pointer :: nEdgesArray
+      integer, dimension(:), pointer :: maxLevelEdgeTop
+      real (kind=RKIND), dimension(:), pointer :: topographic_wave_drag
 
       err = 0
       if ( .not. topographicWaveDragOn ) return
 
       call mpas_timer_start('vel topographic wave drag')
 
+      call mpas_pool_get_dimension(meshPool, 'nEdgesArray', nEdgesArray)
+      call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
+      
+      call mpas_pool_get_array(diagnosticsPool, 'topographic_wave_drag', topographic_wave_drag)
+
+      nEdges = nEdgesArray( 1 )
+
       !$omp do schedule(runtime) private(k)
-      do iEdge = 1, nEdgesOwned
+      do iEdge = 1, nEdges
         k =  maxLevelEdgeTop(iEdge)
         ! topographic wave drag term:
         ! du/dt = ... 1/rinv * u

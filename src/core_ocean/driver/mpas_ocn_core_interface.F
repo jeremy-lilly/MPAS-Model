@@ -121,7 +121,7 @@ module ocn_core_interface
       logical, pointer :: frazilIceActive
       logical, pointer :: tidalForcingActive
       logical, pointer :: tidalPotentialForcingPKGActive
-      logical, pointer :: vegetationDragPKGActive
+      !logical, pointer :: vegetationDragPKGActive
       logical, pointer :: topographicWaveDragPKGActive
       logical, pointer :: inSituEOSActive
       logical, pointer :: variableShortwaveActive
@@ -303,11 +303,11 @@ module ocn_core_interface
       !
       ! test for use of vegetation drag, vegetationDragPKGActive
       !
-      call mpas_pool_get_package(packagePool, 'vegetationDragPKGActive', vegetationDragPKGActive)
-      call mpas_pool_get_config(configPool, 'config_use_vegetation_drag', config_use_vegetation_drag)
-      if (config_use_vegetation_drag) then
-         vegetationDragPKGActive = .true.
-      end if
+      !call mpas_pool_get_package(packagePool, 'vegetationDragPKGActive', vegetationDragPKGActive)
+      !call mpas_pool_get_config(configPool, 'config_use_vegetation_drag', config_use_vegetation_drag)
+      !if (config_use_vegetation_drag) then
+      !   vegetationDragPKGActive = .true.
+      !end if
 
       !
       ! test for use of topographic wave drag, topographicWaveDragPKG

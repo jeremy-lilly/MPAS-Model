@@ -20,6 +20,8 @@
 
 module ocn_vel_forcing
 
+   use mpas_log
+
    use mpas_derived_types
 
    use ocn_constants
@@ -76,7 +78,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vel_forcing_tend(meshPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
+   subroutine ocn_vel_forcing_tend(meshPool, diagnosticsPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
                                    surfaceStress, kineticEnergyCell, layerThicknessEdge, tend, err)!{{{
 
       !-----------------------------------------------------------------
@@ -98,6 +100,9 @@ contains
 
       type (mpas_pool_type), intent(in) :: &
          meshPool          !< Input: mesh information
+
+      type (mpas_pool_type), intent(in) :: &
+         diagnosticsPool          !< Input: diagnostic information
 
       !-----------------------------------------------------------------
       !
@@ -143,7 +148,7 @@ contains
 
       err = ior(err, err1)
 
-      call ocn_vel_forcing_topographic_wave_drag_tend(normalVelocity, &
+      call ocn_vel_forcing_topographic_wave_drag_tend(meshPool, diagnosticsPool, normalVelocity, &
                    tend, err1)
 
       err = ior(err, err1)
