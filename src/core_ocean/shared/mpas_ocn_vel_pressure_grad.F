@@ -57,7 +57,7 @@ module ocn_vel_pressure_grad
    character (len=StrKIND), pointer :: config_pressure_gradient_type
    real (kind=RKIND), pointer :: config_common_level_weight
    logical :: pgradOn
-   real (kind=RKIND) :: density0Inv, gdensity0Inv, inv12
+   real (kind=RKIND) :: density0Inv, gdensity0Inv, inv12, betaSelfAttrLoad
 
 
 !***********************************************************************
@@ -169,7 +169,10 @@ contains
             invdcEdge = 1.0_RKIND / dcEdge(iEdge)
 
             do k=1,maxLevelEdgeTop(iEdge)
-               tend(k,iEdge) = tend(k,iEdge) - gravity * edgeMask(k,iEdge) * invdcEdge * ( ssh(cell2) - ssh(cell1) )
+               tend(k,iEdge) = tend(k,iEdge) - gravity * edgeMask(k,iEdge) * invdcEdge * &
+                  ( ssh(cell2) - ssh(cell1) &                               ! original SSH gradient
+                    + tidalPotentialEta(cell2) - tidalPotentialEta(cell1) & ! in-line tidal potential
+                    + betaSelfAttrLoad *(ssh(cell2) - ssh(cell1))  )        ! beta (constant) self attraction and loading
             end do
          end do
          !$omp end do
@@ -668,6 +671,7 @@ contains
       call mpas_pool_get_config(ocnConfigs, 'config_pressure_gradient_type', config_pressure_gradient_type)
       call mpas_pool_get_config(ocnConfigs, 'config_common_level_weight', config_common_level_weight)
       call mpas_pool_get_config(ocnConfigs, 'config_disable_vel_pgrad', config_disable_vel_pgrad)
+      call mpas_pool_get_config(ocnConfigs, 'config_self_attraction_and_loading_beta', config_self_attraction_and_loading_beta)
 
       pgradOn = .true.
 
@@ -678,6 +682,8 @@ contains
       if (config_disable_vel_pgrad) pgradOn = .false.
 
       call mpas_log_write(' Pressure type is: '//trim(config_pressure_gradient_type))
+
+      betaSelfAttrLoad = config_self_attraction_and_loading_beta
 
    !--------------------------------------------------------------------
 
