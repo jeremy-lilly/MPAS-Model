@@ -27,6 +27,7 @@ module ocn_vel_forcing
 
    use ocn_vel_forcing_surface_stress
    use ocn_vel_forcing_explicit_bottom_drag
+   use ocn_vel_forcing_explicit_rayleigh_drag
 
    implicit none
    private
@@ -141,6 +142,11 @@ contains
               kineticEnergyCell, layerThicknessEdge, tend, err1)
 
       err = ior(err, err1)
+      
+      call ocn_vel_forcing_explicit_rayleigh_drag_tend(meshPool, normalVelocity, &
+              tend, err1)
+
+      err = ior(err, err1)
 
    !--------------------------------------------------------------------
 
@@ -177,6 +183,7 @@ contains
 
       call ocn_vel_forcing_surface_stress_init(err1)
       call ocn_vel_forcing_explicit_bottom_drag_init(err2)
+      call ocn_vel_forcing_explicit_rayleigh_drag_init(err2)
 
       err = ior(err1, err2)
 
