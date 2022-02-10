@@ -135,9 +135,10 @@ contains
         ! appied to bottom layer only.
         ! This term comes from the Rayleigh boundary condition in the vertical
         ! momentum mixing 
-
-        tend(k,iEdge) = tend(k,iEdge) - explicitRayleighDragCoef * &
-           normalVelocity(k,iEdge) 
+        if (k>0) then
+            tend(k,iEdge) = tend(k,iEdge) - explicitRayleighDragCoef * &
+                normalVelocity(k,iEdge)
+        endif
       enddo
       !$omp end do
 
