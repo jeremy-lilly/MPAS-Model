@@ -347,20 +347,22 @@ contains
         call ocn_compute_tidal_potential_forcing(meshPool, forcingPool, diagnosticsPool, err)
       end if
 
-      if (config_use_tidal_potential_forcing .and. (config_time_integrator == 'RK4' .or. config_time_integrator == 'SSPRK3' .or. config_time_integrator == 'LTS3')) then
-        call mpas_pool_get_array(forcingPool, 'tidalPotentialZMid', tidalPotentialZMid)
-        call mpas_pool_get_array(forcingPool, 'tidalPotentialEta', tidalPotentialEta)
-        call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
-
-        do iCell = 1, nCells
-          do k = 1, maxLevelCell(iCell)
-            tidalPotentialZMid(k,iCell) = zMid(k,iCell) - tidalPotentialEta(iCell) &
-                                        - config_self_attraction_and_loading_beta * zMid(k,iCell)
-          end do 
-        end do
-
-        call mpas_pool_get_array(forcingPool, 'tidalPotentialZMid', zMid)
-      end if
+! mrp turn this off, we are adding tidal potential forcing directly to the SSH
+! gradient.
+!      if (config_use_tidal_potential_forcing .and. (config_time_integrator == 'RK4' .or. config_time_integrator == 'SSPRK3' .or. config_time_integrator == 'LTS3')) then
+!        call mpas_pool_get_array(forcingPool, 'tidalPotentialZMid', tidalPotentialZMid)
+!        call mpas_pool_get_array(forcingPool, 'tidalPotentialEta', tidalPotentialEta)
+!        call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
+!
+!        do iCell = 1, nCells
+!          do k = 1, maxLevelCell(iCell)
+!            tidalPotentialZMid(k,iCell) = zMid(k,iCell) - tidalPotentialEta(iCell) &
+!                                        - config_self_attraction_and_loading_beta * zMid(k,iCell)
+!          end do 
+!        end do
+!
+!        call mpas_pool_get_array(forcingPool, 'tidalPotentialZMid', zMid)
+!      end if
 
       !
       ! velocity tendency: pressure gradient
@@ -369,11 +371,11 @@ contains
          ! only pass EOS derivatives if needed.
          call mpas_pool_get_array(diagnosticsPool, 'inSituThermalExpansionCoeff',inSituThermalExpansionCoeff)
          call mpas_pool_get_array(diagnosticsPool, 'inSituSalineContractionCoeff', inSituSalineContractionCoeff)
-         call ocn_vel_pressure_grad_tend(meshPool, ssh, pressure, montgomeryPotential, zMid, density, potentialDensity, &
+         call ocn_vel_pressure_grad_tend(meshPool, forcingPool, ssh, pressure, montgomeryPotential, zMid, density, potentialDensity, &
               indexTemperature, indexSalinity, activeTracers, tend_normalVelocity, err, &
               inSituThermalExpansionCoeff,inSituSalineContractionCoeff)
       else
-         call ocn_vel_pressure_grad_tend(meshPool, ssh, pressure, montgomeryPotential, zMid, density, potentialDensity, &
+         call ocn_vel_pressure_grad_tend(meshPool, forcingPool, ssh, pressure, montgomeryPotential, zMid, density, potentialDensity, &
               indexTemperature, indexSalinity, activeTracers, tend_normalVelocity, err, &
               inSituThermalExpansionCoeff,inSituSalineContractionCoeff)
       endif

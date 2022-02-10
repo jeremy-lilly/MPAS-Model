@@ -73,7 +73,7 @@ contains
 !-----------------------------------------------------------------------
 
    subroutine ocn_vel_forcing_explicit_rayleigh_drag_tend(meshPool, normalVelocity, & !{{{
-                                     kineticEnergyCell, layerThicknessEdge, tend, err)
+                                     tend, err)
 
       !-----------------------------------------------------------------
       !
@@ -82,9 +82,7 @@ contains
       !-----------------------------------------------------------------
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
-         normalVelocity,       &!< Input: velocity
-         kineticEnergyCell,    &!< Input: kinetic energy at cell
-         layerThicknessEdge     !< Input: thickness at edge
+         normalVelocity    !< Input: velocity
 
       type (mpas_pool_type), intent(in) :: &
          meshPool          !< Input: mesh information
@@ -112,7 +110,7 @@ contains
       !
       !-----------------------------------------------------------------
 
-      integer :: iEdge, k, cell1, cell2, nEdges
+      integer :: iEdge, k, nEdges
       integer, dimension(:), pointer :: nEdgesArray
       integer, dimension(:), pointer :: maxLevelEdgeTop
       integer, dimension(:,:), pointer :: cellsOnEdge
@@ -125,14 +123,11 @@ contains
 
       call mpas_pool_get_dimension(meshPool, 'nEdgesArray', nEdgesArray)
       call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
-      call mpas_pool_get_array(meshPool, 'cellsOnEdge', cellsOnEdge)
 
       nEdges = nEdgesArray( 1 )
 
       !$omp do schedule(runtime) private(k, cell1, cell2)
       do iEdge = 1, nEdges
-        cell1 = cellsOnEdge(1,iEdge)
-        cell2 = cellsOnEdge(2,iEdge)
         k =  maxLevelEdgeTop(iEdge)
 
         ! Explicit Rayleigh drag term:
@@ -140,9 +135,10 @@ contains
         ! appied to bottom layer only.
         ! This term comes from the Rayleigh boundary condition in the vertical
         ! momentum mixing 
-
-        tend(k,iEdge) = tend(k,iEdge) - explicitRayleighDragCoef * &
-           normalVelocity(k,iEdge) 
+        if (k>0) then
+            tend(k,iEdge) = tend(k,iEdge) - explicitRayleighDragCoef * &
+                normalVelocity(k,iEdge)
+        endif
       enddo
       !$omp end do
 
