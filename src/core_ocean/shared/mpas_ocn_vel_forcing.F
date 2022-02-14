@@ -20,6 +20,8 @@
 
 module ocn_vel_forcing
 
+   use mpas_log
+
    use mpas_derived_types
 
    use ocn_constants
@@ -27,6 +29,7 @@ module ocn_vel_forcing
 
    use ocn_vel_forcing_surface_stress
    use ocn_vel_forcing_explicit_bottom_drag
+   use ocn_vel_forcing_topographic_wave_drag
    use ocn_vel_forcing_explicit_rayleigh_drag
 
    implicit none
@@ -76,7 +79,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vel_forcing_tend(meshPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
+   subroutine ocn_vel_forcing_tend(meshPool, diagnosticsPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
                                    surfaceStress, kineticEnergyCell, layerThicknessEdge, tend, err)!{{{
 
       !-----------------------------------------------------------------
@@ -98,6 +101,9 @@ contains
 
       type (mpas_pool_type), intent(in) :: &
          meshPool          !< Input: mesh information
+
+      type (mpas_pool_type), intent(in) :: &
+         diagnosticsPool          !< Input: diagnostic information
 
       !-----------------------------------------------------------------
       !
@@ -148,6 +154,10 @@ contains
 
       err = ior(err, err1)
 
+      call ocn_vel_forcing_topographic_wave_drag_tend(meshPool, diagnosticsPool, normalVelocity, &
+                   tend, err1)
+
+      err = ior(err, err1)
    !--------------------------------------------------------------------
 
    end subroutine ocn_vel_forcing_tend!}}}
@@ -186,6 +196,14 @@ contains
       call ocn_vel_forcing_explicit_rayleigh_drag_init(err2)
 
       err = ior(err1, err2)
+
+      call ocn_vel_forcing_topographic_wave_drag_init(err2)
+      if (err2 /= 0) then
+         call mpas_log_write( &
+            'vel_forcing_init encountered error in topographic wave drag', &
+             MPAS_LOG_ERR)
+         err = err2
+      endif
 
    !--------------------------------------------------------------------
 

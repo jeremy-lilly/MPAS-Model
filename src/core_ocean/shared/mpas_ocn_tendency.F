@@ -396,7 +396,7 @@ contains
       !
       ! velocity tendency: forcing and bottom drag
       !
-      call ocn_vel_forcing_tend(meshPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
+      call ocn_vel_forcing_tend(meshPool, diagnosticsPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
               surfaceStress, kineticEnergyCell, layerThicknessEdge, &
                                 tend_normalVelocity, err)
 
