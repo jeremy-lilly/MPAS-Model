@@ -2832,12 +2832,12 @@ module ocn_time_integration_lts3
           !   LTSRegion(iCell) = 2
           !end if
 
-          latPoint = pii * 0.5
-          lonPoint = 135 * pii / 180
+          latPoint = 0.692933
+          lonPoint = 4.962180
           distLTS = sphere_distance(latCell(iCell), lonCell(iCell), latPoint, lonPoint, 1.0)
           ! NOTE: the number on the right hand side of the inequality dictates
           ! where is the interface between coarse and fine on the mesh
-          if (distLTS > 0.7) then   
+          if (distLTS > 0.3) then   
              LTSRegion(iCell) = 2
           end if
           !BEGIN: test initializaton
