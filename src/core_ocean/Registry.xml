@@ -3815,8 +3815,6 @@
                 <var name="edgesInLTSHalo"                    type="integer"  dimensions="TWO FIVE nEdges"/>
                 <var name="nEdgesInLTSHalo"                   type="integer"  dimensions="TWO FIVE"/>
                 <var name="minMaxLTSRegion"                   type="integer"  dimensions="TWO"/>
-                <var name="minMaxAfterHaloUpdate"             type="integer"  dimensions="TWO"/>
-                <var name="doExtraLayers"                     type="integer"  dimensions=""/>
                 <var name="haveFine"                          type="integer"  dimensions=""/>
                 <var name="haveCoarse"                        type="integer"  dimensions=""/>
                 <var name="haveInterface"                     type="integer"  dimensions=""/>

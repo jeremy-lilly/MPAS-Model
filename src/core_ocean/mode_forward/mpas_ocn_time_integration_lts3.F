@@ -86,7 +86,7 @@ module ocn_time_integration_lts3
     type (domain_type), intent(inout) :: domain
     real (kind=RKIND), intent(in) :: dt
 
-    integer :: iCell, iEdge, iRegion, k, ic, ie, im, M, nRegions, err, cell1, cell2
+    integer :: iCell, iEdge, iRegion, k, ic, ie, im, M, nRegions, err
 
     type (block_type), pointer :: block
 
@@ -2760,17 +2760,12 @@ module ocn_time_integration_lts3
     type (block_type), pointer :: block
     type (mpas_pool_type), pointer :: statePool, meshPool, tendPool, LTSPool
     integer, dimension(:), allocatable :: isLTSRegionEdgeAssigned
-    integer :: nLTSHalos
-    integer :: i, iCell, iEdge, iVertex, iRegion, iHalo, iHaloP1, iCellHalo, cell1, cell2, nLTSHalosCopy, haveFineCounter, haveCoarseCounter, moreCellsOnInterface
-    integer, pointer :: nCells, nCellsSolve, nEdges, nEdgesSolve, haveFine, haveCoarse, haveInterface, doExtraLayers
-    real (kind=RKIND), dimension(:), pointer :: latCell, lonCell, areaCell
-    integer, dimension(:), pointer :: LTSRegion, LTSRegionLocal, nEdgesOnCell, minMaxLTSRegion, minMaxAfterHaloUpdate, indexToCellID
-    integer, dimension(:,:), pointer :: cellsOnEdge,  edgesOnCell, verticesOnCell, nCellsInLTSHalo, nEdgesInLTSHalo
+    integer :: i, iCell, iEdge, iRegion, iHalo, coarseRegions, fineRegions, fineRegionsM1 
+    integer, pointer :: nCells, nCellsSolve, nEdges, nEdgesSolve, haveFine, haveCoarse, haveInterface
+    integer, dimension(:), pointer :: LTSRegion, LTSRegionLocal, nEdgesOnCell, minMaxLTSRegion
+    integer, dimension(:,:), pointer :: edgesOnCell, nCellsInLTSHalo, nEdgesInLTSHalo
     integer, dimension(:,:,:), pointer :: cellsInLTSHalo, edgesInLTSHalo
     integer, dimension(:), pointer :: mpiRankCell, blockPartitionCell
-    real (kind=RKIND) :: latPoint, lonPoint, distLTS
-
-    nLTSHalos = 4
 
     block => domain % blocklist
     do while (associated(block))
@@ -2780,13 +2775,8 @@ module ocn_time_integration_lts3
        call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
        call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
 
-       call mpas_pool_get_array(meshPool, 'latCell', latCell)
-       call mpas_pool_get_array(meshPool, 'lonCell', lonCell)
-       call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
-       call mpas_pool_get_array(meshPool, 'cellsOnEdge', cellsOnEdge)
        call mpas_pool_get_array(meshPool, 'mpiRankCell', mpiRankCell)
        call mpas_pool_get_array(meshPool, 'blockPartitionCell', blockPartitionCell)
-       call mpas_pool_get_array(meshPool, 'indexToCellID', indexToCellID)
 
        call mpas_pool_get_array(LTSPool, 'LTSRegion', LTSRegion)
        call mpas_pool_get_array(LTSPool, 'LTSRegionLocal', LTSRegionLocal)
@@ -2794,12 +2784,10 @@ module ocn_time_integration_lts3
        call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
        call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
        call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
-       call mpas_pool_get_array(LTSPool, 'doExtraLayers', doExtraLayers)
        call mpas_pool_get_array(LTSPool, 'cellsInLTSHalo', cellsInLTSHalo)
        call mpas_pool_get_array(LTSPool, 'nCellsInLTSHalo', nCellsInLTSHalo)
        call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo', nEdgesInLTSHalo)
 
-       ! the loop below initializes the LTS regions for the current processor (or block)
        ! LTS Regions code:
        ! 1 = fine
        ! 2 = coarse
@@ -2822,6 +2810,7 @@ module ocn_time_integration_lts3
           blockPartitionCell(iCell) = block % blockID
        end do
 
+       ! TODO: careful with this one now
        minMaxLTSRegion(1) = minval(LTSRegionLocal(1:nCells))
        minMaxLTSRegion(2) = maxval(LTSRegionLocal(1:nCells))
 
@@ -2833,7 +2822,7 @@ module ocn_time_integration_lts3
       block => block % next
     end do
 
-    ! is this needed?
+    ! TODO: is this needed? Don't think so
     call mpas_dmpar_field_halo_exch(domain, 'LTSRegionLocal')
 
     block => domain % blocklist
@@ -2846,7 +2835,6 @@ module ocn_time_integration_lts3
        call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
        call mpas_pool_get_dimension(block % dimensions, 'nEdgesSolve', nEdgesSolve)
 
-       call mpas_pool_get_array(meshPool, 'cellsOnEdge', cellsOnEdge)
        call mpas_pool_get_array(meshPool, 'edgesOnCell', edgesOnCell)
        call mpas_pool_get_array(meshPool, 'nEdgesOnCell', nEdgesOnCell)
        call mpas_pool_get_array(LTSPool, 'LTSRegionLocal', LTSRegionLocal)
@@ -2917,46 +2905,36 @@ module ocn_time_integration_lts3
           end do
        end do
 
-       do iHalo = 1, nLTSHalos
-          do iCell = 1, nCellsInLTSHalo(1, nLTSHalos - iHalo + 2)
-             do i = 1, nEdgesOnCell(cellsInLTSHalo(1, nLTSHalos- iHalo + 2, iCell))
-                iEdge = edgesOnCell(i,cellsInLTSHalo(1, nLTSHalos - iHalo + 2, iCell))
-                if (iEdge .le. nEdgesSolve) then
-                   if (isLTSRegionEdgeAssigned(iEdge) == 0) then 
-                      nEdgesInLTSHalo(1, nLTSHalos - iHalo + 2) = nEdgesInLTSHalo(1, nLTSHalos - iHalo + 2) + 1
-                      edgesInLTSHalo(1, nLTSHalos - iHalo + 2, nEdgesInLTSHalo(1, nLTSHalos - iHalo + 2)) = iEdge
-                      isLTSRegionEdgeAssigned(iEdge) = 1
-                   end if
-                end if
-             end do
-          end do
-       end do
-
-       do iHalo = 1, nLTSHalos
-          do iCell = 1, nCellsInLTSHalo(2, iHalo+1)
-             do i = 1, nEdgesOnCell(cellsInLTSHalo(2,iHalo+1,iCell))
-                iEdge = edgesOnCell(i,cellsInLTSHalo(2,iHalo+1,iCell))
+       fineRegions = 3
+       fineRegionsM1 = 2
+       do iHalo = 1, fineRegionsM1
+          do iCell = 1, nCellsInLTSHalo(1, fineRegions - iHalo + 1)
+             do i = 1, nEdgesOnCell(cellsInLTSHalo(1, fineRegions - iHalo + 1, iCell))
+                iEdge = edgesOnCell(i,cellsInLTSHalo(1, fineRegions - iHalo + 1, iCell))
                 if (iEdge .le. nEdgesSolve) then
                    if (isLTSRegionEdgeAssigned(iEdge) == 0) then
-                      nEdgesInLTSHalo(2, iHalo+1) = nEdgesInLTSHalo(2, iHalo+1) + 1
-                      edgesInLTSHalo(2, iHalo+1,  nEdgesInLTSHalo(2, iHalo+1)) = iEdge
-                      isLTSRegionEdgeAssigned(iEdge) = 1
+                      nEdgesInLTSHalo(1, fineRegions - iHalo + 1) = nEdgesInLTSHalo(1, fineRegions - iHalo + 1) + 1
+                      edgesInLTSHalo(1, fineRegions - iHalo + 1, nEdgesInLTSHalo(1, fineRegions - iHalo + 1)) = iEdge
+                      isLTSRegionEdgeAssigned(iEdge) = 1 
                    end if
                 end if
              end do
           end do
        end do
 
-       do iCell = 1, nCellsInLTSHalo(2,1)
-          do i = 1, nEdgesOnCell(cellsInLTSHalo(2,1,iCell))
-             iEdge = edgesOnCell(i,cellsInLTSHalo(2,1,iCell))
-             if (iEdge .le. nEdgesSolve) then
-                if(isLTSRegionEdgeAssigned(iEdge) == 0) then
-                   nEdgesInLTSHalo(2,1) = nEdgesInLTSHalo(2,1) + 1
-                   edgesInLTSHalo(2,1,nEdgesInLTSHalo(2,1)) = iEdge
-                   isLTSRegionEdgeAssigned(iEdge) = 1
+       coarseRegions = 2
+       do iHalo = 1, coarseRegions
+          do iCell = 1, nCellsInLTSHalo(2, coarseRegions - iHalo + 1)
+             do i = 1, nEdgesOnCell(cellsInLTSHalo(2,coarseRegions - iHalo + 1,iCell))
+                iEdge = edgesOnCell(i,cellsInLTSHalo(2,coarseRegions - iHalo + 1,iCell))
+                if (iEdge .le. nEdgesSolve) then
+                   if (isLTSRegionEdgeAssigned(iEdge) == 0) then
+                      nEdgesInLTSHalo(2, coarseRegions - iHalo + 1) = nEdgesInLTSHalo(2, coarseRegions - iHalo + 1) + 1
+                      edgesInLTSHalo(2, coarseRegions - iHalo + 1, nEdgesInLTSHalo(2, coarseRegions - iHalo + 1)) = iEdge
+                      isLTSRegionEdgeAssigned(iEdge) = 1
+                   end if
                 end if
-             end if
+             end do
           end do
        end do
 
