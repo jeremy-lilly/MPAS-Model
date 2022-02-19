@@ -1614,6 +1614,7 @@
 			<var name="landIcePressure"/>
 			<var name="landIceFraction"/>
 			<var name="landIceDraft"/>
+			<var name="LTSRegionLocal"/>
 		</stream>
 		<stream name="block_debug_output"
 				type="output"
