@@ -2762,10 +2762,14 @@ module ocn_time_integration_lts3
     integer, dimension(:), allocatable :: isLTSRegionEdgeAssigned
     integer :: i, iCell, iEdge, iRegion, iHalo, coarseRegions, fineRegions, fineRegionsM1 
     integer, pointer :: nCells, nCellsSolve, nEdges, nEdgesSolve, haveFine, haveCoarse, haveInterface
-    integer, dimension(:), pointer :: LTSRegion, LTSRegionLocal, nEdgesOnCell, minMaxLTSRegion
+    integer, dimension(:), pointer :: LTSRegion, LTSRegionLocal, nEdgesOnCell
     integer, dimension(:,:), pointer :: edgesOnCell, nCellsInLTSHalo, nEdgesInLTSHalo
     integer, dimension(:,:,:), pointer :: cellsInLTSHalo, edgesInLTSHalo
     integer, dimension(:), pointer :: mpiRankCell, blockPartitionCell
+    integer, dimension(2) :: minMaxLTSRegion
+
+    minMaxLTSRegion(1) = 1
+    minMaxLTSRegion(2) = 2
 
     block => domain % blocklist
     do while (associated(block))
@@ -2780,7 +2784,6 @@ module ocn_time_integration_lts3
 
        call mpas_pool_get_array(LTSPool, 'LTSRegion', LTSRegion)
        call mpas_pool_get_array(LTSPool, 'LTSRegionLocal', LTSRegionLocal)
-       call mpas_pool_get_array(LTSPool, 'minMaxLTSRegion', minMaxLTSRegion)
        call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
        call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
        call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
@@ -2810,20 +2813,8 @@ module ocn_time_integration_lts3
           blockPartitionCell(iCell) = block % blockID
        end do
 
-       ! TODO: careful with this one now
-       minMaxLTSRegion(1) = minval(LTSRegionLocal(1:nCells))
-       minMaxLTSRegion(2) = maxval(LTSRegionLocal(1:nCells))
-
-       if (minMaxLTSRegion(2) - minMaxLTSRegion(1) > 1) then
-          call mpas_log_write('minMaxLTSRegion(2) - minMaxLTSRegion(1) > 1 not allowed. Change LTSRegion initialization in ocn_time_integrator_lts3_init subroutine.')
-          stop
-       end if
-
       block => block % next
     end do
-
-    ! TODO: is this needed? Don't think so
-    call mpas_dmpar_field_halo_exch(domain, 'LTSRegionLocal')
 
     block => domain % blocklist
     do while (associated(block))
@@ -2838,7 +2829,6 @@ module ocn_time_integration_lts3
        call mpas_pool_get_array(meshPool, 'edgesOnCell', edgesOnCell)
        call mpas_pool_get_array(meshPool, 'nEdgesOnCell', nEdgesOnCell)
        call mpas_pool_get_array(LTSPool, 'LTSRegionLocal', LTSRegionLocal)
-       call mpas_pool_get_array(LTSPool, 'minMaxLTSRegion', minMaxLTSRegion)
        call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
        call mpas_pool_get_array(LTSPool, 'haveCoarse', haveCoarse)
        call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
