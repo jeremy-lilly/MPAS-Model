@@ -1,18 +1,20 @@
 #!/usr/bin/env python
 
 import os
+import subprocess as sp
 import shutil
 import numpy as np
 import xarray as xr
 import argparse
 import math
-import time
 
 
-def main(base_mesh, graph_info, num_blocks):
-    timeStart = time.time()
+def main(mesh, graph_info, num_blocks):
 
-    ds = xr.open_dataset(base_mesh)
+    shCommand = 'gpmetis ' + graph_info + ' ' + str(num_blocks)
+    sp.call(shCommand.split())
+    
+    ds = xr.open_dataset(mesh)
 
     nCells = ds['nCells'].size
     LTSRegionLocal = np.zeros([nCells])
@@ -72,8 +74,8 @@ def main(base_mesh, graph_info, num_blocks):
             
             newf+= blockID + "\n"
        
-        print('if all procCells have been found, these two numbers are equal:',
-                sum(procFoundCell[:]), nCells)
+        print('If all procCells have been found, these two numbers are equal:',
+              sum(procFoundCell[:]), nCells)
     
     with open(graph_info + '.part.' + str(int(numBlocks)), 'w') as f:
         f.write(newf)
@@ -91,19 +93,17 @@ if __name__ == '__main__':
                                      existing graph.info file by running \
                                      `gpmetis graph.info NUM_BLOCKS`.')
 
-    parser.add_argument('-b', '--base-mesh', dest='base_mesh',
-                        default='base_mesh.nc',
-                        help='File containing the base mesh. Default is \
-                        `base_mesh.nc`.')
+    parser.add_argument('-m', '--mesh', dest='mesh',
+                        default='input.nc',
+                        help='File containing the mesh. Default is \
+                        `input.nc`.')
 
     parser.add_argument('-g', '--graph-info', dest='graph_info',
                         default='graph.info',
-                        help='graph.info file corresponding to the base mesh. \
-                        Default is `graph.info`. The script assumes that the \
-                        corresponding .part.NUM_BLOCKS file is in the same \
-                        directory as this file.')
+                        help='graph.info file corresponding to the mesh. \
+                        Default is `graph.info`.')
 
-    parser.add_argument('-k', '--num-blocks', dest='num_blocks',
+    parser.add_argument('-b', '--num-blocks', dest='num_blocks',
                         default=12,
                         help='Number of blocks to partition for. Usually this \
                         is 3 * NUM_PROCS, where NUM_PROCS is the number of MPI \
@@ -112,5 +112,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    main(args.base_mesh, args.graph_info, args.num_blocks)
+    main(args.mesh, args.graph_info, args.num_blocks)
 
