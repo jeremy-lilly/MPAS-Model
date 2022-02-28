@@ -121,7 +121,7 @@ contains
       integer, dimension(:), pointer :: constituentType
       real (kind=RKIND), dimension(:), pointer :: eta
       real (kind=RKIND), dimension(:,:), pointer :: zMid, tidalPotentialZMid
-      real (kind=RKIND), pointer :: daysSinceStartOfSim
+      real (kind=RKIND), pointer :: daysSinceStartOfSim, tidalTimeIncrement
       
       integer :: iCell
       integer :: jCon, conType
@@ -145,10 +145,11 @@ contains
       call mpas_pool_get_array(forcingPool, 'tidalPotentialConstituentType', constituentType)
       call mpas_pool_get_array(forcingPool, 'tidalPotentialLatitudeFunction', latitudeFunction)
       call mpas_pool_get_array(forcingPool, 'tidalPotentialEta', eta)
+      call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
       call mpas_pool_get_array(diagnosticsPool, "daysSinceStartOfSim", daysSinceStartOfSim)
 
       ramp = tanh((2.0_RKIND*daysSinceStartOfSim)/tidalPotentialRamp)
-      t = daysSinceStartOfSim*86400.0_RKIND
+      t = daysSinceStartOfSim*86400.0_RKIND + tidalTimeIncrement
 
       do iCell = 1, nCells
         eta(iCell) = 0.0_RKIND

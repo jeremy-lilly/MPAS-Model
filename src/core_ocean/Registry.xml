@@ -3219,6 +3219,10 @@
 			description="Equilibrium tidal potential"
 			packages="forwardMode"
 		/>
+		<var name="tidalTimeIncrement" type="real" dimensions="" units="s"
+			description="Time increment to compute tidalPotentialEta at intermediate time intervals"
+			packages="forwardMode"
+		/>
 		<var name="nTidalPotentialConstituents" type="integer" dimensions="Time" units="unitless"
 			description="Number of tidal constituents"
 			packages="tidalPotentialForcingPKG"
