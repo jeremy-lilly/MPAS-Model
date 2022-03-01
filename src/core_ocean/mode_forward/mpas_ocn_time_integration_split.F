@@ -229,6 +229,8 @@ module ocn_time_integration_split
 
       integer :: temp_mask
       real (kind=RKIND) :: tracer2_value, lat
+    
+      real (kind=RKIND), pointer :: tidalTimeIncrement
 
       call mpas_timer_start("se timestep")
 
@@ -290,6 +292,7 @@ module ocn_time_integration_split
          call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
          call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+         call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
 
          call mpas_pool_get_array(statePool, 'normalBaroclinicVelocity', normalBaroclinicVelocityCur, 1)
          call mpas_pool_get_array(statePool, 'normalBarotropicVelocity', normalBarotropicVelocityCur, 1)
@@ -315,6 +318,10 @@ module ocn_time_integration_split
 
          call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
          call mpas_pool_get_dimension(tracersPool, 'index_salinity', indexSalinity)
+       
+         call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+       
+         tidalTimeIncrement = 0.0_RKIND
 
          nCells = nCellsPtr
          nEdges = nEdgesPtr
