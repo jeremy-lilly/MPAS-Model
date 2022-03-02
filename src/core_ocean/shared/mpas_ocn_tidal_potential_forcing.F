@@ -148,8 +148,8 @@ contains
       call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
       call mpas_pool_get_array(diagnosticsPool, "daysSinceStartOfSim", daysSinceStartOfSim)
 
-      ramp = tanh((2.0_RKIND*daysSinceStartOfSim)/tidalPotentialRamp)
       t = daysSinceStartOfSim*86400.0_RKIND + tidalTimeIncrement
+      ramp = tanh((2.0_RKIND*t/86400.0_RKIND)/tidalPotentialRamp)
 
       do iCell = 1, nCells
         eta(iCell) = 0.0_RKIND
