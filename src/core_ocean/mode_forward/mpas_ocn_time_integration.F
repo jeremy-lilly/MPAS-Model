@@ -78,7 +78,7 @@ module ocn_time_integration
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_timestep(domain, dt, timeStamp)!{{{
+   subroutine ocn_timestep(domain, dt)!{{{
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! Advance model state forward in time by the specified time step
    !
@@ -92,17 +92,18 @@ module ocn_time_integration
 
       type (domain_type), intent(inout) :: domain
       real (kind=RKIND), intent(in) :: dt
-      character(len=*), intent(in) :: timeStamp
 
       type (dm_info) :: dminfo
       type (block_type), pointer :: block
 
       type (mpas_pool_type), pointer :: diagnosticsPool, statePool, meshPool
 
-      character (len=StrKIND), pointer :: xtime
+      !character (len=StrKIND), pointer :: xtime
       real (kind=RKIND), pointer :: daysSinceStartOfSim
       character (len=StrKIND), pointer :: simulationStartTime
-      type (MPAS_Time_type) :: xtime_timeType, simulationStartTime_timeType
+      type (MPAS_Time_type) :: currTime, simulationStartTime_timeType
+      
+      integer :: ierr
 
 
       if (rk4On) then
@@ -121,16 +122,15 @@ module ocn_time_integration
         call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
 
-        call mpas_pool_get_array(diagnosticsPool, 'xtime', xtime)
-
-        xtime = timeStamp
+        !call mpas_pool_get_array(diagnosticsPool, 'xtime', xtime)
 
         ! compute time since start of simulation, in days
         call mpas_pool_get_array(diagnosticsPool, 'simulationStartTime', simulationStartTime)
         call mpas_pool_get_array(diagnosticsPool, 'daysSinceStartOfSim',daysSinceStartOfSim)
-        call mpas_set_time(xtime_timeType, dateTimeString=xtime)
+        
+        currTime = mpas_get_clock_time(domain % clock, MPAS_NOW, ierr)
         call mpas_set_time(simulationStartTime_timeType, dateTimeString=simulationStartTime)
-        call mpas_get_timeInterval(xtime_timeType - simulationStartTime_timeType,dt=daysSinceStartOfSim)
+        call mpas_get_timeInterval(currTime - simulationStartTime_timeType,dt=daysSinceStartOfSim)
 
         !$omp single
         daysSinceStartOfSim = daysSinceStartOfSim*days_per_second
