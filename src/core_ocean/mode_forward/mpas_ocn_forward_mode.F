@@ -619,7 +619,7 @@ module ocn_forward_mode
 #endif
          !$omp parallel default(firstprivate) shared(domain, dt, timeStamp)
 
-         call ocn_timestep(domain, dt)
+         call ocn_timestep(domain, dt, timeStamp)
 
          !$omp end parallel
 
