@@ -325,15 +325,25 @@ contains
 
     real (kind=RKIND) :: dtSim
 
+    real (kind=RKIND), pointer :: tidalTimeIncrement
+
+    type (mpas_pool_type), pointer :: forcingPool
+
     integer :: err
+
+    call mpas_pool_get_subpool(domain % blocklist % structs, 'forcing', forcingPool)
+    call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)    
 
     ! configurations
     call mpas_pool_get_config(domain % configs, 'config_dt', config_dt)
     call mpas_pool_get_config(domain % configs, 'config_time_varying_atmospheric_forcing_type', config_atmospheric_forcing_type)
 
     ! convert config_dt to real
+    ! MAYBE NEED TO CHANGE config_dt to add the time increment?
     call mpas_set_timeInterval(timeStepESMF, timeString=config_dt,ierr=err)
     call mpas_get_timeInterval(timeStepESMF, dt=dtSim)
+
+    dtSim = dtSim + tidalTimeIncrement
 
     ! use the forcing layer to get data
     call MPAS_forcing_get_forcing(&
@@ -377,7 +387,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-  subroutine post_atmospheric_forcing(block)!{{{
+   subroutine post_atmospheric_forcing(block)!{{{
 
     type (block_type), pointer :: block
 
@@ -403,11 +413,13 @@ contains
          rhoAir, &
          ramp, &
          currentTime, &
-         windStressCoefficientLimit
+         windStressCoefficientLimit, &
+         t
 
     real(kind=RKIND), pointer:: &
         config_forcing_ramp, &
-        daysSinceStartOfSim
+        daysSinceStartOfSim, &
+        tidalTimeIncrement
 
     integer, pointer :: &
          nCells
@@ -433,11 +445,13 @@ contains
 
     call MPAS_pool_get_array(timeVaryingForcingPool, "atmosPressure", atmosPressure)
     call MPAS_pool_get_array(forcingPool, "atmosphericPressure", atmosphericPressure)
+    call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
 
     rhoAir = 1.225_RKIND
     windStressCoefficientLimit = 0.0035_RKIND
 
-    ramp = tanh((2.0_RKIND*daysSinceStartOfSim)/config_forcing_ramp)
+    t = daysSinceStartOfSim*86400_RKIND + tidalTimeIncrement
+    ramp = tanh((2.0_RKIND*t) / (86400_RKIND * config_forcing_ramp))
 
     !$omp do schedule(runtime) private(iCell, windStressCoefficient)
     do iCell = 1, nCells
