@@ -13,7 +13,7 @@ from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
 
-def main(mesh, graph_info, num_interface):
+def main(mesh, graph_info, num_interface, fine_region):
 
     # read in mesh data
     ds = xr.open_dataset(mesh)
@@ -32,41 +32,49 @@ def main(mesh, graph_info, num_interface):
     #####
 
     # [lat, lon] points defining the fine region
-    atlanticRegionPts = np.array([[0.481, -1.737 + 2 * math.pi],
-                                  [0.311, -1.701 + 2 * math.pi],
-                                  [0.234, -1.508 + 2 * math.pi],
-                                  [0.148, -1.430 + 2 * math.pi],
-                                  [0.151, -1.397 + 2 * math.pi],
-                                  [0.163, -1.383 + 2 * math.pi],
-                                  [0.120, -1.320 + 2 * math.pi],
-                                  [0.077, -0.921 + 2 * math.pi],
-                                  [0.199, -0.784 + 2 * math.pi],
-                                  [0.496, -0.750 + 2 * math.pi],
-                                  [0.734, -0.793 + 2 * math.pi],
-                                  [0.826, -0.934 + 2 * math.pi],
-                                  [0.871, -1.001 + 2 * math.pi],
-                                  [0.897, -0.980 + 2 * math.pi],
-                                  [0.914, -1.012 + 2 * math.pi],
-                                  [0.850, -1.308 + 2 * math.pi],
-                                  [0.743, -1.293 + 2 * math.pi],
-                                  [0.638, -1.781 + 2 * math.pi],
-                                  [0.481, -1.737 + 2 * math.pi]])
+    westernAtlanticRegionPts = np.array([[0.481, -1.737 + 2*math.pi],
+                                         [0.311, -1.701 + 2*math.pi],
+                                         [0.234, -1.508 + 2*math.pi],
+                                         [0.148, -1.430 + 2*math.pi],
+                                         [0.151, -1.397 + 2*math.pi],
+                                         [0.163, -1.383 + 2*math.pi],
+                                         [0.120, -1.320 + 2*math.pi],
+                                         [0.077, -0.921 + 2*math.pi],
+                                         [0.199, -0.784 + 2*math.pi],
+                                         [0.496, -0.750 + 2*math.pi],
+                                         [0.734, -0.793 + 2*math.pi],
+                                         [0.826, -0.934 + 2*math.pi],
+                                         [0.871, -1.001 + 2*math.pi],
+                                         [0.897, -0.980 + 2*math.pi],
+                                         [0.914, -1.012 + 2*math.pi],
+                                         [0.850, -1.308 + 2*math.pi],
+                                         [0.743, -1.293 + 2*math.pi],
+                                         [0.638, -1.781 + 2*math.pi],
+                                         [0.481, -1.737 + 2*math.pi]])
+    
+    delawareCoastRegionPts = np.array([[0.532, 4.862], 
+                                       [0.520, 4.946],
+                                       [0.523, 5.018],
+                                       [0.548, 5.082],
+                                       [0.596, 5.131],
+                                       [0.639, 5.159],
+                                       [0.690, 5.175],
+                                       [0.731, 5.168],
+                                       [0.760, 5.147],
+                                       [0.777, 5.148],
+                                       [0.790, 5.181],
+                                       [0.813, 5.048],
+                                       [0.556, 4.775]])
 
-    delawareBayRegionPts = np.array([[0.532, 4.862], 
-                                     [0.520, 4.946],
-                                     [0.523, 5.018],
-                                     [0.548, 5.082],
-                                     [0.596, 5.131],
-                                     [0.639, 5.159],
-                                     [0.690, 5.175],
-                                     [0.731, 5.168],
-                                     [0.760, 5.147],
-                                     [0.777, 5.148],
-                                     [0.790, 5.181],
-                                     [0.813, 5.048],
-                                     [0.556, 4.775]])
+    if fine_region == 'delaware_coast':
+        fineRegion = Polygon(delawareCoastRegionPts)
+    elif fine_region == 'western_atlantic':
+        fineRegion = Polygon(westernAtlanticRegionPts)
+    else:
+        print('Desired region is undefined')
+        quit()
+    # END if
 
-    fineRegion = Polygon(delawareBayRegionPts)
 
     # start by assuming all cells set to coarse
     LTSRegion = [2] * nCells
@@ -310,17 +318,20 @@ def main(mesh, graph_info, num_interface):
     widthRatio = maxWidth / minWidth
     numberRatio = coarseCells / fineCells
 
-    print('Number of fine cells = ' + str(fineCells))
-    print('Number of coarse cells = ' + str(coarseCells))
-    print('Ratio of largest cell area to smallest cell area = ' 
-          + str(areaRatio))
-    print('Ratio of largest cell width to smallest cell width = ' 
-          + str(widthRatio))
-    print('Ratio of number of coarse cells to number of fine cells = '
-          + str(numberRatio))
+    txt = 'number of fine cells = {}\n'.format(fineCells)
+    txt += 'number of coarse cells = {}\n'.format(coarseCells)
+    txt += 'ratio of number of coarse cells to number of fine cells = {}\n'.format(numberRatio)
+    txt += 'ratio of largest cell area to smallest cell area = {}\n'.format(areaRatio)
+    txt += 'ratio of largest cell width to smallest cell width = {}\n'.format(widthRatio)
 
-    
-    return fineCells, coarseCells, areaRatio, numberRatio
+    print(txt)
+
+    with open('lts_mesh_info.txt', 'w') as f:
+        f.write(txt)
+    # END with
+
+ 
+    return fineCells, coarseCells, areaRatio, widthRatio, numberRatio
 
 
 # END of main()
@@ -350,8 +361,14 @@ if __name__ == '__main__':
                         balancing. Default is 2 (the minimum for an ocean \
                         simulation).')
 
+    parser.add_argument('-r', '--fine-region', dest='fine_region',
+                        default='delaware_coast', type=str,
+                        help='Choice of the fine region. Choices are \
+                        `delaware_coast`, or `western_atlantic`. \
+                        Default is `delaware_coast`.')
+
     args = parser.parse_args()
 
 
-    main(args.mesh, args.graph_info, args.num_interface)
+    main(args.mesh, args.graph_info, args.num_interface, args.fine_region)
 
