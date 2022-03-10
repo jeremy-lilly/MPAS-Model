@@ -77,7 +77,7 @@ def main(mesh, graph_info, num_blocks):
         print('If all procCells have been found, these two numbers are equal:',
               sum(procFoundCell[:]), nCells)
     
-    with open(graph_info + '.part.' + str(int(numBlocks)), 'w') as f:
+    with open(graph_info + '.part.lts.' + str(int(numBlocks)), 'w') as f:
         f.write(newf)
 
 
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('-g', '--graph-info', dest='graph_info',
                         default='graph.info',
                         help='graph.info file corresponding to the mesh. \
-                        Default is `graph.info`.')
+                        Default is `graph.info.lts`.')
 
     parser.add_argument('-b', '--num-blocks', dest='num_blocks',
                         default=12,
