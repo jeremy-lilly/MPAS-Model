@@ -201,7 +201,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_prevent_drying_rk4(block, dt, rkSubstepWeight, config_zero_drying_velocity, err) !{{{
+   subroutine ocn_prevent_drying_rk4(block, dt, rkSubstepWeight, err) !{{{
 
      !-----------------------------------------------------------------
      !
@@ -212,7 +212,6 @@ contains
      type (block_type), intent(in) :: block
      real (kind=RKIND), intent(in) :: dt
      real (kind=RKIND), intent(in) :: rkSubstepWeight
-     logical, pointer :: config_zero_drying_velocity
 
      !-----------------------------------------------------------------
      !
@@ -299,10 +298,11 @@ contains
            normalVelocity(k, iEdge) = normalVelocity(k, iEdge) + wettingVelocity(k, iEdge)
          end if
 
-         if (abs(wettingVelocity(k, iEdge)) > 0.0_RKIND .and. config_zero_drying_velocity) then
+! Change later, this code should always be run.
+!         if (abs(wettingVelocity(k, iEdge)) > 0.0_RKIND .and. config_zero_drying_velocity) then
            normalTransportVelocity(k, iEdge) = 0.0_RKIND
            normalVelocity(k, iEdge) = 0.0_RKIND
-         end if
+!         end if
 
        end do
      end do
@@ -389,14 +389,11 @@ contains
       real (kind=RKIND), dimension(:), pointer :: dvEdge
       real (kind=RKIND), dimension(:), pointer :: areaCell
 
-      real (kind=RKIND), pointer :: config_drying_min_cell_height, config_drying_safety_height
-      logical, pointer :: config_zero_drying_velocity
+      real (kind=RKIND), pointer :: config_drying_min_cell_height
 
       err = 0
 
       call mpas_pool_get_config(ocnConfigs, 'config_drying_min_cell_height', config_drying_min_cell_height)
-      call mpas_pool_get_config(ocnConfigs, 'config_zero_drying_velocity', config_zero_drying_velocity)
-      call mpas_pool_get_config(ocnConfigs, 'config_drying_safety_height', config_drying_safety_height)
 
       call mpas_pool_get_array(meshPool, 'nEdgesOnCell', nEdgesOnCell)
       call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
@@ -430,7 +427,7 @@ contains
           end do
 
           ! if layer thickness is too small, limit divergence flux outwards with opposite velocity
-          if ((layerThickness + dt*divOutFlux ) <= (config_drying_min_cell_height + config_drying_safety_height))  then
+          if ((layerThickness + dt*divOutFlux ) <= (config_drying_min_cell_height))  then
             ! limit divOutFlux out of cell to keep it wet
             divOutFlux = abs(divOutFlux)
             divOutFlux = (layerThickness - (config_drying_min_cell_height + eps)) / (dt*divOutFlux + eps)
@@ -443,9 +440,9 @@ contains
                   ! square the fractional term to make values near zero go to zero much quicker (to prevent threshold from being hit)
                   wettingVelocity(k, iEdge) =  - (min(max(0.0_RKIND, 1.0_RKIND - (divOutFlux*divOutFlux)), 1.0_RKIND)) * normalVelocity(k, iEdge)
                   ! just go with simple boolean approach for zero wetting velocity for debugging purposes
-                  if (config_zero_drying_velocity) then
+!                  if (config_zero_drying_velocity) then
                     wettingVelocity(k, iEdge) = 1.0_RKIND
-                  end if
+!                  end if
                 end if
               end if
             end do

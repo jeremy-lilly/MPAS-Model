@@ -244,7 +244,6 @@ contains
 
       logical, pointer :: config_disable_vel_all_tend
       logical, pointer :: config_use_wetting_drying
-      logical, pointer :: config_prevent_drying
       logical, pointer :: config_use_tidal_potential_forcing
       character (len=StrKIND), pointer :: config_pressure_gradient_type
       character (len=StrKIND), pointer :: config_time_integrator
@@ -259,7 +258,6 @@ contains
       call mpas_pool_get_config(ocnConfigs, 'config_disable_vel_all_tend', config_disable_vel_all_tend)
       call mpas_pool_get_config(ocnConfigs, 'config_pressure_gradient_type', config_pressure_gradient_type)
       call mpas_pool_get_config(ocnConfigs, 'config_use_wetting_drying', config_use_wetting_drying)
-      call mpas_pool_get_config(ocnConfigs, 'config_prevent_drying', config_prevent_drying)
       call mpas_pool_get_config(ocnConfigs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
       call mpas_pool_get_config(ocnConfigs, 'config_self_attraction_and_loading_beta',config_self_attraction_and_loading_beta)
       call mpas_pool_get_config(ocnConfigs, 'config_time_integrator', config_time_integrator)

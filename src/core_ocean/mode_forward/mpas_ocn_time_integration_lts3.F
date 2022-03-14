@@ -132,8 +132,6 @@ module ocn_time_integration_lts3
     real (kind=RKIND), pointer :: config_drying_min_cell_height
     logical, pointer :: config_use_wetting_drying
     logical, pointer :: config_verify_not_dry
-    logical, pointer :: config_prevent_drying
-    logical, pointer :: config_zero_drying_velocity
     character (len=StrKIND), pointer :: config_land_ice_flux_mode
     logical :: activeTracersOnlyIn
 
@@ -218,10 +216,8 @@ module ocn_time_integration_lts3
     call mpas_pool_get_config(domain % configs, 'config_disable_thick_all_tend', config_disable_thick_all_tend)
     call mpas_pool_get_config(domain % configs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
     call mpas_pool_get_config(domain % configs, 'config_use_wetting_drying', config_use_wetting_drying)
-    call mpas_pool_get_config(domain % configs, 'config_prevent_drying', config_prevent_drying)
     call mpas_pool_get_config(domain % configs, 'config_verify_not_dry', config_verify_not_dry)
     call mpas_pool_get_config(domain % configs, 'config_drying_min_cell_height', config_drying_min_cell_height)
-    call mpas_pool_get_config(domain % configs, 'config_zero_drying_velocity', config_zero_drying_velocity)
     call mpas_pool_get_config(domain % configs, 'config_use_tidal_forcing', config_use_tidal_forcing)
     call mpas_pool_get_config(domain % configs, 'config_tidal_forcing_type', config_tidal_forcing_type)
 
