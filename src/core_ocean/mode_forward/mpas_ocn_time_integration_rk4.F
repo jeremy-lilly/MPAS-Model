@@ -127,7 +127,6 @@ module ocn_time_integration_rk4
       logical, pointer :: config_disable_vel_all_tend
       logical, pointer :: config_disable_tr_all_tend
       real (kind=RKIND), pointer :: config_mom_del4
-      real (kind=RKIND), pointer :: config_drying_min_cell_height
       logical, pointer :: config_use_wetting_drying
       logical, pointer :: config_verify_not_dry
       character (len=StrKIND), pointer :: config_land_ice_flux_mode
@@ -211,7 +210,6 @@ module ocn_time_integration_rk4
       call mpas_pool_get_config(domain % configs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
       call mpas_pool_get_config(domain % configs, 'config_use_wetting_drying', config_use_wetting_drying)
       call mpas_pool_get_config(domain % configs, 'config_verify_not_dry', config_verify_not_dry)
-      call mpas_pool_get_config(domain % configs, 'config_drying_min_cell_height', config_drying_min_cell_height)
       call mpas_pool_get_config(domain % configs, 'config_use_tidal_forcing', config_use_tidal_forcing)
       call mpas_pool_get_config(domain % configs, 'config_tidal_forcing_type', config_tidal_forcing_type)
 
@@ -592,7 +590,7 @@ module ocn_time_integration_rk4
         if (config_verify_not_dry) then
           block => domain % blocklist
             do while (associated(block))
-              call ocn_wetting_drying_verify(block, config_drying_min_cell_height, err)
+              call ocn_wetting_drying_verify(block, err)
               block => block % next
             end do
         end if
