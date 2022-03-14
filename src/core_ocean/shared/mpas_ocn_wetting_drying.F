@@ -74,7 +74,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_wetting_drying_verify( block , minHeight, err)!{{{
+   subroutine ocn_wetting_drying_verify(block, err)!{{{
 
       !-----------------------------------------------------------------
       !
@@ -83,7 +83,6 @@ contains
       !-----------------------------------------------------------------
 
       type (block_type), intent(in) :: block !< block for computation
-      real (kind=RKIND), intent(in) :: minHeight
 
       !-----------------------------------------------------------------
       !
@@ -119,6 +118,7 @@ contains
       real (kind=RKIND) :: minThickness, layerThick
       character (len=StrKIND) :: debugFilename
       character (len=StrKIND), pointer :: config_time_integrator
+      real (kind=RKIND), pointer :: config_drying_min_cell_height
 
       !-----------------------------------------------------------------
       !
@@ -140,6 +140,8 @@ contains
       call mpas_pool_get_config(ocnConfigs, 'config_time_integrator', config_time_integrator)
       call mpas_pool_get_array(meshPool, 'lonCell', lonCell)
       call mpas_pool_get_array(meshPool, 'latCell', latCell)
+      call mpas_pool_get_config(ocnConfigs, 'config_drying_min_cell_height', config_drying_min_cell_height)
+
 
       err = 0
 
@@ -156,7 +158,7 @@ contains
             layerThick = layerThicknessNew(k, iCell)
           end if
           minThickness = min(minThickness, layerThick)
-          if ( layerThick <  minHeight ) then
+          if ( layerThick <  config_drying_min_cell_height ) then
             ! report error if layerThickness constraint is violated
             if (err == 0) then
               debugFilename = ocn_build_log_filename('mpas_ocean_layerThickness_block_stats_', block % blockID)
@@ -181,7 +183,7 @@ contains
         close(debugUnit)
         call mpas_release_unit(debugUnit)
         call mpas_log_write( 'ERROR: Layer thickness smaller than $r, see ' // debugFilename , &
-                             realArgs=(/ minHeight /), messageType=MPAS_LOG_CRIT)
+                             realArgs=(/ config_drying_min_cell_height /), messageType=MPAS_LOG_CRIT)
       else
         call mpas_log_write( 'Done verifying that cells are wet.')
       end if
