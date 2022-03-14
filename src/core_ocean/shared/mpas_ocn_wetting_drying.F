@@ -289,21 +289,10 @@ contains
      !$omp do schedule(runtime)
      do iEdge = 1, nEdges
        do k = 1, maxLevelEdgeBot(iEdge)
-         !if (abs(normalTransportVelocity(k,iEdge) + wettingVelocity(k,iEdge)) < eps)  then
-         !  ! prevent spurious flux for close to zero values
-         !  normalTransportVelocity(k, iEdge) = 0.0_RKIND
-         !  normalVelocity(k, iEdge) = 0.0_RKIND
-         !!else if (abs(normalTransportVelocity(k,iEdge) + wettingVelocity(k,iEdge)) <= abs(normalTransportVelocity(k,iEdge))) then
-         !!  normalTransportVelocity(k, iEdge) = normalTransportVelocity(k, iEdge) + wettingVelocity(k, iEdge)
-         !!  normalVelocity(k, iEdge) = normalVelocity(k, iEdge) + wettingVelocity(k, iEdge)
-         !end if
-
-! Change later, this code should always be run.
-!         if (abs(wettingVelocity(k, iEdge)) > 0.0_RKIND .and. config_zero_drying_velocity) then
+         if (abs(wettingVelocity(k, iEdge)) > 0.0_RKIND) then
            normalTransportVelocity(k, iEdge) = 0.0_RKIND
            normalVelocity(k, iEdge) = 0.0_RKIND
-!         end if
-
+         end if
        end do
      end do
      !$omp end do
@@ -427,22 +416,14 @@ contains
           end do
 
           ! if layer thickness is too small, limit divergence flux outwards with opposite velocity
-          if ((layerThickness + dt*divOutFlux ) <= config_drying_min_cell_height)  then
-            ! limit divOutFlux out of cell to keep it wet
-            divOutFlux = abs(divOutFlux)
-            divOutFlux = (layerThickness - (config_drying_min_cell_height + eps)) / (dt*divOutFlux + eps)
-
+          if ((layerThickness + dt*divOutFlux ) <= (config_drying_min_cell_height))  then
             do i = 1, nEdgesOnCell(iCell)
               iEdge = edgesOnCell(i, iCell)
               if (k <= maxLevelEdgeBot(iEdge)) then
                 if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
-                  ! each outgoing velocity is penalized (but not the incoming, wetting velocities)
-                  ! square the fractional term to make values near zero go to zero much quicker (to prevent threshold from being hit)
-                  wettingVelocity(k, iEdge) =  - (min(max(0.0_RKIND, 1.0_RKIND - (divOutFlux*divOutFlux)), 1.0_RKIND)) * normalVelocity(k, iEdge)
+                  ! each outgoing velocity will be set to zero (but not the incoming, wetting velocities)
                   ! just go with simple boolean approach for zero wetting velocity for debugging purposes
-!                  if (config_zero_drying_velocity) then
-                    wettingVelocity(k, iEdge) = 1.0_RKIND
-!                  end if
+                  wettingVelocity(k, iEdge) = 1.0_RKIND
                 end if
               end if
             end do
