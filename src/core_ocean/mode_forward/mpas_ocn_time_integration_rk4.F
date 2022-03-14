@@ -130,8 +130,6 @@ module ocn_time_integration_rk4
       real (kind=RKIND), pointer :: config_drying_min_cell_height
       logical, pointer :: config_use_wetting_drying
       logical, pointer :: config_verify_not_dry
-      logical, pointer :: config_prevent_drying
-      logical, pointer :: config_zero_drying_velocity
       character (len=StrKIND), pointer :: config_land_ice_flux_mode
 
       ! State indices
@@ -212,10 +210,8 @@ module ocn_time_integration_rk4
       call mpas_pool_get_config(domain % configs, 'config_disable_thick_all_tend', config_disable_thick_all_tend)
       call mpas_pool_get_config(domain % configs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
       call mpas_pool_get_config(domain % configs, 'config_use_wetting_drying', config_use_wetting_drying)
-      call mpas_pool_get_config(domain % configs, 'config_prevent_drying', config_prevent_drying)
       call mpas_pool_get_config(domain % configs, 'config_verify_not_dry', config_verify_not_dry)
       call mpas_pool_get_config(domain % configs, 'config_drying_min_cell_height', config_drying_min_cell_height)
-      call mpas_pool_get_config(domain % configs, 'config_zero_drying_velocity', config_zero_drying_velocity)
       call mpas_pool_get_config(domain % configs, 'config_use_tidal_forcing', config_use_tidal_forcing)
       call mpas_pool_get_config(domain % configs, 'config_tidal_forcing_type', config_tidal_forcing_type)
 
@@ -481,19 +477,16 @@ module ocn_time_integration_rk4
         if (config_use_wetting_drying) then
              call mpas_timer_start("RK4-prevent drying")
 
-             ! compute wetting velocity to prevent drying of cell (sets up start of next iterate to not dry)
-             if (config_prevent_drying) then
-               block => domain % blocklist
-                 do while (associated(block))
-                   call ocn_prevent_drying_rk4(block, dt, rk_substep_weights(rk_step), config_zero_drying_velocity, err)
-                   block => block % next
-                 end do
-               ! exchange fields for parallelization
-               call mpas_pool_get_field(statePool, 'normalVelocity', normalVelocityField, 1)
-               call mpas_dmpar_exch_halo_field(normalVelocityField)
-               call mpas_pool_get_field(diagnosticsPool, 'wettingVelocity', wettingVelocityField)
-               call mpas_dmpar_exch_halo_field(wettingVelocityField)
-             end if
+             block => domain % blocklist
+               do while (associated(block))
+                 call ocn_prevent_drying_rk4(block, dt, rk_substep_weights(rk_step), err)
+                 block => block % next
+               end do
+             ! exchange fields for parallelization
+             call mpas_pool_get_field(statePool, 'normalVelocity', normalVelocityField, 1)
+             call mpas_dmpar_exch_halo_field(normalVelocityField)
+             call mpas_pool_get_field(diagnosticsPool, 'wettingVelocity', wettingVelocityField)
+             call mpas_dmpar_exch_halo_field(wettingVelocityField)
 
              call mpas_timer_stop("RK4-prevent drying")
              call mpas_threading_barrier()
