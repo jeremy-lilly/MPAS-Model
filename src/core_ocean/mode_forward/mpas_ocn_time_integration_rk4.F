@@ -479,7 +479,7 @@ module ocn_time_integration_rk4
 
              block => domain % blocklist
                do while (associated(block))
-                 call ocn_prevent_drying_rk4(block, dt, rk_substep_weights(rk_step), err)
+                 call ocn_prevent_drying(block, rk_substep_weights(rk_step), err)
                  block => block % next
                end do
              ! exchange fields for parallelization
