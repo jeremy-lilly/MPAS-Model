@@ -47,7 +47,7 @@ module ocn_wetting_drying
    !
    !--------------------------------------------------------------------
 
-   public :: ocn_wetting_drying_verify, ocn_prevent_drying_rk4
+   public :: ocn_wetting_drying_verify, ocn_prevent_drying
 
    !--------------------------------------------------------------------
    !
@@ -191,7 +191,7 @@ contains
 
 !***********************************************************************
 !
-!  routine ocn_prevent_drying_rk4
+!  routine ocn_prevent_drying
 !
 !> \brief   Prevents velocity tendency from causing cell drying
 !> \author  Phillip J. Wolfram
@@ -201,7 +201,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_prevent_drying_rk4(block, dt, rkSubstepWeight, err) !{{{
+   subroutine ocn_prevent_drying(block, dt, err) !{{{
 
      !-----------------------------------------------------------------
      !
@@ -211,7 +211,6 @@ contains
 
      type (block_type), intent(in) :: block
      real (kind=RKIND), intent(in) :: dt
-     real (kind=RKIND), intent(in) :: rkSubstepWeight
 
      !-----------------------------------------------------------------
      !
@@ -283,7 +282,7 @@ contains
      ! ensure cells stay wet by selectively damping cells with a damping tendency to make sure tendency doesn't dry cells
 
      call ocn_wetting_drying_wettingVelocity(meshPool, layerThicknessEdge, layerThicknessCur, layerThicknessProvis, &
-                                             normalTransportVelocity, rkSubstepWeight, wettingVelocity, err)
+                                             normalTransportVelocity, dt, wettingVelocity, err)
 
      ! prevent drying from happening with selective wettingVelocity
      !$omp do schedule(runtime)
@@ -298,7 +297,7 @@ contains
      !$omp end do
      call mpas_threading_barrier()
 
-   end subroutine ocn_prevent_drying_rk4 !}}}
+   end subroutine ocn_prevent_drying !}}}
 
 
 !***********************************************************************
@@ -314,7 +313,6 @@ contains
 !
 !-----------------------------------------------------------------------
    subroutine ocn_wetting_drying_wettingVelocity(meshPool, layerThicknessEdge, layerThicknessCur, layerThicknessProvis, &
-
        normalVelocity, dt, wettingVelocity, err)!{{{
 
       !-----------------------------------------------------------------
