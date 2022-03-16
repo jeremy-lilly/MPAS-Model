@@ -403,6 +403,7 @@ module ocn_time_integration_ssprk3
 
       ! Compute tendencies for velocity, thickness, and tracers.
       call mpas_timer_start("SSPRK3 vel/thick/tracers tendency computations")
+      !print*, "ssprk_step---------->", ssprk_step
       call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
       block => domain % blocklist
       do while (associated(block))

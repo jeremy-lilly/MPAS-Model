@@ -26,6 +26,7 @@ module ocn_forward_mode
    use mpas_stream_manager
    use mpas_timekeeping
    use mpas_dmpar
+   use mpas_forcing
    use mpas_timer
    use mpas_log
    use mpas_decomp
@@ -81,6 +82,7 @@ module ocn_forward_mode
    use ocn_forcing
    use ocn_sea_ice
    use ocn_time_varying_forcing
+   use ocn_framework_forcing
 
    use ocn_constants
    use ocn_config
@@ -559,7 +561,7 @@ module ocn_forward_mode
 
       ! initialize time-varying forcing
       call ocn_time_varying_forcing_init(domain)
-      call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+      !call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
 
       ! During integration, time level 1 stores the model state at the beginning of the
       !   time step, and time level 2 stores the state advanced dt in time by timestep(...)
@@ -710,7 +712,8 @@ module ocn_forward_mode
          endif
 
          ! read in next time level data required for time-varying forcing
-         call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+         !call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+         call mpas_advance_forcing_clock(forcingGroupHead, dt)
 
          ! Validate that the state is OK to run with for the next timestep.
          call ocn_validate_state(domain, timeLevel=1)

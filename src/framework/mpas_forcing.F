@@ -35,7 +35,8 @@ module mpas_forcing
        mpas_forcing_init_field_data, &
        mpas_forcing_get_forcing, &
        mpas_forcing_get_forcing_time, &
-       mpas_forcing_write_restart_times
+       mpas_forcing_write_restart_times, &
+       mpas_advance_forcing_clock
 
 contains
 
@@ -1193,7 +1194,7 @@ contains
        if (trim(forcingGroup % forcingGroupName) == trim(forcingGroupName)) then
 
           ! advance the forcing time
-          call advance_forcing_clock(forcingGroup, dt)
+          call mpas_advance_forcing_clock(forcingGroup, dt)
 
           ! cycle the forcing clock
           if (forcingGroup % forcingCycleUse) then
@@ -1230,7 +1231,7 @@ contains
 
 !|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 !
-!  advance_forcing_clock
+!  mpas_advance_forcing_clock
 !
 !> \brief set the forcing clock
 !> \author Adrian K. Turner, LANL
@@ -1241,7 +1242,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-  subroutine advance_forcing_clock(&!{{{
+  subroutine mpas_advance_forcing_clock(&!{{{
        forcingGroup, &
        dt)
 
@@ -1258,7 +1259,7 @@ contains
     call mpas_set_timeInterval(timeStep, dt=dt)
     call mpas_advance_clock(forcingGroup % forcingClock, timeStep)
 
-  end subroutine advance_forcing_clock!}}}
+  end subroutine mpas_advance_forcing_clock!}}}
 
 !|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 !

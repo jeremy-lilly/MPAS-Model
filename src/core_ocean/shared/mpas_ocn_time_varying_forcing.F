@@ -323,7 +323,7 @@ contains
 
     character(len=StrKIND) :: timeStamp
 
-    real (kind=RKIND) :: dtSim
+    real (kind=RKIND) :: dtSim, dtSimReverse
 
     real (kind=RKIND), pointer :: tidalTimeIncrement
 
@@ -343,7 +343,9 @@ contains
     call mpas_set_timeInterval(timeStepESMF, timeString=config_dt,ierr=err)
     call mpas_get_timeInterval(timeStepESMF, dt=dtSim)
 
-    dtSim = dtSim + tidalTimeIncrement
+    dtSim = tidalTimeIncrement
+    dtSimReverse = -dtSim
+    !print*, "dtSim=", dtSim
 
     ! use the forcing layer to get data
     call MPAS_forcing_get_forcing(&
@@ -356,8 +358,22 @@ contains
          forcingGroupHead, &               ! forcingGroupHead
          "ocn_atmospheric_forcing", &      ! forcingGroupName
          currentForcingTime)               ! forcingTime
-    !call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
-    !call mpas_log_write('Forcing time ' // trim(timeStamp))
+
+    call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
+    call mpas_log_write('Forcing time ' // trim(timeStamp))
+
+    
+    call mpas_advance_forcing_clock(forcingGroupHead, dtSimReverse)
+
+    call MPAS_forcing_get_forcing_time(&
+         forcingGroupHead, &               ! forcingGroupHead
+         "ocn_atmospheric_forcing", &      ! forcingGroupName
+         currentForcingTime)               ! forcingTime
+
+    call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
+    call mpas_log_write('Forcing time reversed ' // trim(timeStamp))
+
+
 
     ! perform post forcing
     block => domain % blocklist
