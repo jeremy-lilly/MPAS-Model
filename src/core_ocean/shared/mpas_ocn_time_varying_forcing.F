@@ -339,9 +339,9 @@ contains
     call mpas_pool_get_config(domain % configs, 'config_time_varying_atmospheric_forcing_type', config_atmospheric_forcing_type)
 
     ! convert config_dt to real
-    ! MAYBE NEED TO CHANGE config_dt to add the time increment?
     call mpas_set_timeInterval(timeStepESMF, timeString=config_dt,ierr=err)
-    call mpas_get_timeInterval(timeStepESMF, dt=dtSim)
+    !TODO: we don't need the line below anymore because we are setting dtSim here
+    !call mpas_get_timeInterval(timeStepESMF, dt=dtSim)
 
     dtSim = tidalTimeIncrement
     dtSimReverse = -dtSim
@@ -372,8 +372,6 @@ contains
 
     call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
     call mpas_log_write('Forcing time reversed ' // trim(timeStamp))
-
-
 
     ! perform post forcing
     block => domain % blocklist
