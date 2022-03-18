@@ -1288,14 +1288,6 @@ contains
        end if
     end if
 
-    ! this is just for debug
-    !if (real(S_d) .ne. 0.0_RKIND) then
-    !  factor = real(S_n) / real(S_d)
-    !else
-    !  factor = 0
-    !end if
-    !print*, dt, DD, H, M, S, S_n, S_d, factor
-  
     ! increment clock with timestep
     call mpas_set_timeInterval(timeStep, DD=DD, H=H, M=M, S=S, S_n=S_n, S_d=S_d)
     call mpas_advance_clock(forcingGroup % forcingClock, timeStep)

@@ -340,12 +340,9 @@ contains
 
     ! convert config_dt to real
     call mpas_set_timeInterval(timeStepESMF, timeString=config_dt,ierr=err)
-    !TODO: we don't need the line below anymore because we are setting dtSim here
-    !call mpas_get_timeInterval(timeStepESMF, dt=dtSim)
 
     dtSim = tidalTimeIncrement
     dtSimReverse = -dtSim
-    !print*, "dtSim=", dtSim
 
     ! use the forcing layer to get data
     call MPAS_forcing_get_forcing(&
