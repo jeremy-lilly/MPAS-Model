@@ -39,6 +39,7 @@ module ocn_time_integration_lts3
    use ocn_wetting_drying
 
    use ocn_effective_density_in_land_ice
+   use ocn_time_varying_forcing 
 
    use ocn_time_integration_ssprk3
 
@@ -513,6 +514,7 @@ module ocn_time_integration_lts3
 
          ! VELOCITY: TENDENCY COMPUTATION ---
          forcingTimeIncrement = 0.0_RKIND
+         call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
          call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dt)
 
          ! TODO: this below is needed only if GM is true and normalTransportVelocity is not equal to normalVelocity
@@ -766,6 +768,7 @@ module ocn_time_integration_lts3
 
             ! TENDENCIES COMPUTATION ---
             forcingTimeIncrement = dt
+            call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
             call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dt, activeTracersOnlyIn, 3)
@@ -1102,6 +1105,7 @@ module ocn_time_integration_lts3
 
                ! TENDENCIES COMPUTATION ---
                forcingTimeIncrement = (im-1)*dtFine + 0.0_RKIND
+               call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 1)
@@ -1453,6 +1457,7 @@ module ocn_time_integration_lts3
  
                ! TENDENCIES COMPUTATION ---
                forcingTimeIncrement = (im-1)*dtFine + dtFine
+               call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 3)
@@ -1817,6 +1822,7 @@ module ocn_time_integration_lts3
  
                ! TENDENCIES COMPUTATION ---
                forcingTimeIncrement = (im-1)*dtFine + dtFine/2.
+               call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 4)
@@ -2283,6 +2289,7 @@ module ocn_time_integration_lts3
 
             ! TENDENCIES COMPUTATION ---
             forcingTimeIncrement = dt/2.
+            call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
             call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dt, activeTracersOnlyIn, 4)
