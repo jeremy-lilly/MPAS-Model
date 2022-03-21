@@ -294,9 +294,9 @@ contains
            ! prevent spurious flux for close to zero values
            normalTransportVelocity(k, iEdge) = 0.0_RKIND
            normalVelocity(k, iEdge) = 0.0_RKIND
-         else if (abs(normalTransportVelocity(k,iEdge) + wettingVelocity(k,iEdge)) <= abs(normalTransportVelocity(k,iEdge))) then
-           normalTransportVelocity(k, iEdge) = normalTransportVelocity(k, iEdge) + wettingVelocity(k, iEdge)
-           normalVelocity(k, iEdge) = normalVelocity(k, iEdge) + wettingVelocity(k, iEdge)
+         !else if (abs(normalTransportVelocity(k,iEdge) + wettingVelocity(k,iEdge)) <= abs(normalTransportVelocity(k,iEdge))) then
+         !  normalTransportVelocity(k, iEdge) = normalTransportVelocity(k, iEdge) + wettingVelocity(k, iEdge)
+         !  normalVelocity(k, iEdge) = normalVelocity(k, iEdge) + wettingVelocity(k, iEdge)
          end if
 
          if (abs(wettingVelocity(k, iEdge)) > 0.0_RKIND .and. config_zero_drying_velocity) then
