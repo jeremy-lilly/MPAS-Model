@@ -39,6 +39,7 @@ module ocn_time_integration_rk4
    use ocn_wetting_drying
 
    use ocn_effective_density_in_land_ice
+   use ocn_time_varying_forcing
 
    implicit none
    private
@@ -503,16 +504,20 @@ module ocn_time_integration_rk4
         ! In RK4 notation, we are computing the right hand side f(t,y),
         ! which is the same as k_j / h.
         call mpas_timer_start("RK4 vel/thick tendency computations")
-
+       
         block => domain % blocklist
         do while (associated(block))
-
            call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
            call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
            forcingTimeIncrement = forcingTimeIncrementRK4(rk_step)
+           block => block % next
+        end do
 
+        call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+
+        block => domain % blocklist
+        do while (associated(block))
            call ocn_time_integrator_rk4_compute_vel_tends( block, dt, rk_substep_weights(rk_step), err )
-
            call ocn_time_integrator_rk4_compute_thick_tends( block, dt, rk_substep_weights(rk_step), err )
            block => block % next
         end do
