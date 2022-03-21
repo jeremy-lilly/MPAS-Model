@@ -325,14 +325,14 @@ contains
 
     real (kind=RKIND) :: dtSim, dtSimReverse
 
-    real (kind=RKIND), pointer :: tidalTimeIncrement
+    real (kind=RKIND), pointer :: forcingTimeIncrement
 
     type (mpas_pool_type), pointer :: forcingPool
 
     integer :: err
 
     call mpas_pool_get_subpool(domain % blocklist % structs, 'forcing', forcingPool)
-    call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)    
+    call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)    
 
     ! configurations
     call mpas_pool_get_config(domain % configs, 'config_dt', config_dt)
@@ -341,7 +341,7 @@ contains
     ! convert config_dt to real
     call mpas_set_timeInterval(timeStepESMF, timeString=config_dt,ierr=err)
 
-    dtSim = tidalTimeIncrement
+    dtSim = forcingTimeIncrement
     dtSimReverse = -dtSim
 
     ! use the forcing layer to get data
@@ -430,7 +430,7 @@ contains
     real(kind=RKIND), pointer:: &
         config_forcing_ramp, &
         daysSinceStartOfSim, &
-        tidalTimeIncrement
+        forcingTimeIncrement
 
     integer, pointer :: &
          nCells
@@ -456,12 +456,12 @@ contains
 
     call MPAS_pool_get_array(timeVaryingForcingPool, "atmosPressure", atmosPressure)
     call MPAS_pool_get_array(forcingPool, "atmosphericPressure", atmosphericPressure)
-    call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+    call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
 
     rhoAir = 1.225_RKIND
     windStressCoefficientLimit = 0.0035_RKIND
 
-    t = daysSinceStartOfSim*86400_RKIND + tidalTimeIncrement
+    t = daysSinceStartOfSim*86400_RKIND + forcingTimeIncrement
     ramp = tanh((2.0_RKIND*t) / (86400_RKIND * config_forcing_ramp))
 
     !$omp do schedule(runtime) private(iCell, windStressCoefficient)

@@ -200,7 +200,7 @@ module ocn_time_integration_lts3
     real (kind=RKIND) :: weightOld, weightNew, weightTend
     real (kind=RKIND) :: weightTendSum1st, weightTendSum2nd, weightTendSum3rd
     
-    real (kind=RKIND), pointer :: tidalTimeIncrement
+    real (kind=RKIND), pointer :: forcingTimeIncrement
 
     ! Get config options
     call mpas_pool_get_config(domain % configs, 'config_dt_scaling_LTS', config_dt_scaling_LTS)
@@ -295,9 +295,9 @@ module ocn_time_integration_lts3
        call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
        call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
 
-       call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+       call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
        
-       tidalTimeIncrement = 0.0_RKIND
+       forcingTimeIncrement = 0.0_RKIND
 
        !$omp do schedule(runtime) private(k)
        do iEdge = 1, nEdges
@@ -504,7 +504,7 @@ module ocn_time_integration_lts3
          call mpas_pool_get_array(statePool, 'ssh', sshCur, 1)
          call mpas_pool_get_array(diagnosticsPool, 'layerThicknessEdge', layerThicknessEdge)
          call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
-         call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+         call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
          
          ! VELOCITY: VERTICAL TRANSPORT COMPUTATION --- 
          call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessCur, &
@@ -512,7 +512,7 @@ module ocn_time_integration_lts3
          call mpas_threading_barrier()
 
          ! VELOCITY: TENDENCY COMPUTATION ---
-         tidalTimeIncrement = 0.0_RKIND
+         forcingTimeIncrement = 0.0_RKIND
          call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dt)
 
          ! TODO: this below is needed only if GM is true and normalTransportVelocity is not equal to normalVelocity
@@ -754,7 +754,7 @@ module ocn_time_integration_lts3
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityFirstStage, 3)
          call mpas_pool_get_array(diagnosticsPool, 'normalTransportVelocity', normalTransportVelocity)
         
-         call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+         call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
 
 
          if(haveCoarse == 1 .or. haveInterface == 1) then
@@ -765,7 +765,7 @@ module ocn_time_integration_lts3
             call mpas_threading_barrier()
 
             ! TENDENCIES COMPUTATION ---
-            tidalTimeIncrement = dt
+            forcingTimeIncrement = dt
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
             call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dt, activeTracersOnlyIn, 3)
@@ -1091,7 +1091,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(diagnosticsPool, 'layerThicknessEdge', layerThicknessEdge)
             call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
            
-            call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+            call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
 
             if(haveFine == 1 .or. haveInterface == 1) then
 
@@ -1101,7 +1101,7 @@ module ocn_time_integration_lts3
                call mpas_threading_barrier()
 
                ! TENDENCIES COMPUTATION ---
-               tidalTimeIncrement = (im-1)*dtFine + 0.0_RKIND
+               forcingTimeIncrement = (im-1)*dtFine + 0.0_RKIND
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 1)
@@ -1442,7 +1442,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(diagnosticsPool, 'layerThicknessEdge', layerThicknessEdge)
             call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
             
-            call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+            call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
 
             if(haveFine == 1 .or. haveInterface == 1) then
 
@@ -1452,7 +1452,7 @@ module ocn_time_integration_lts3
                call mpas_threading_barrier()
  
                ! TENDENCIES COMPUTATION ---
-               tidalTimeIncrement = (im-1)*dtFine + dtFine
+               forcingTimeIncrement = (im-1)*dtFine + dtFine
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 3)
@@ -1806,7 +1806,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(diagnosticsPool, 'layerThicknessEdge', layerThicknessEdge)
             call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
            
-            call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+            call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
 
            if(haveFine == 1 .or. haveInterface == 1) then
 
@@ -1816,7 +1816,7 @@ module ocn_time_integration_lts3
                call mpas_threading_barrier()
  
                ! TENDENCIES COMPUTATION ---
-               tidalTimeIncrement = (im-1)*dtFine + dtFine/2.
+               forcingTimeIncrement = (im-1)*dtFine + dtFine/2.
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 4)
@@ -2272,7 +2272,7 @@ module ocn_time_integration_lts3
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocitySecondStage, 4)
          call mpas_pool_get_array(diagnosticsPool, 'normalTransportVelocity', normalTransportVelocity)
            
-         call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+         call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
 
          if(haveCoarse == 1) then
 
@@ -2282,7 +2282,7 @@ module ocn_time_integration_lts3
             call mpas_threading_barrier()
 
             ! TENDENCIES COMPUTATION ---
-            tidalTimeIncrement = dt/2.
+            forcingTimeIncrement = dt/2.
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
             call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dt, activeTracersOnlyIn, 4)

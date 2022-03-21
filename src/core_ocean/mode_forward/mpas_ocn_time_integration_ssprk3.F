@@ -106,7 +106,7 @@ module ocn_time_integration_ssprk3
 
     integer :: ssprk_step
 
-    real (kind=RKIND), dimension(3) :: weights_old, weights_new, weights_tend, tidalTimeIncrementSSPRK3
+    real (kind=RKIND), dimension(3) :: weights_old, weights_new, weights_tend, forcingTimeIncrementSSPRK3
 
     ! Dimensions
     integer, pointer :: nCells, nEdges, nVertLevels, num_tracers
@@ -180,7 +180,7 @@ module ocn_time_integration_ssprk3
     real (kind=RKIND), dimension(:,:), pointer :: restingThickness
     real (kind=RKIND) :: totalDepth
     
-    real (kind=RKIND), pointer :: tidalTimeIncrement
+    real (kind=RKIND), pointer :: forcingTimeIncrement
 
     ! Get config options
     call mpas_pool_get_config(domain % configs, 'config_mom_del4', config_mom_del4)
@@ -228,9 +228,9 @@ module ocn_time_integration_ssprk3
        call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
        call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
 
-       call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
+       call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
 
-       tidalTimeIncrement = 0.0_RKIND
+       forcingTimeIncrement = 0.0_RKIND
 
        !$omp do schedule(runtime) private(k)
        do iEdge = 1, nEdges
@@ -305,9 +305,9 @@ module ocn_time_integration_ssprk3
     !weights_tend(2) = dt * 0.5   !use this for SSPRK2
     weights_tend(3) = dt * 2./3.
 
-    tidalTimeIncrementSSPRK3(1) = 0 * dt 
-    tidalTimeIncrementSSPRK3(2) = dt 
-    tidalTimeIncrementSSPRK3(3) = dt/2 
+    forcingTimeIncrementSSPRK3(1) = 0 * dt 
+    forcingTimeIncrementSSPRK3(2) = dt 
+    forcingTimeIncrementSSPRK3(3) = dt/2 
 
     err = 0 ! for MPI_Barrier tests
 
@@ -396,8 +396,8 @@ module ocn_time_integration_ssprk3
       block => domain % blocklist
       do while (associated(block))
            call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
-           call mpas_pool_get_array(forcingPool, 'tidalTimeIncrement', tidalTimeIncrement)
-           tidalTimeIncrement = tidalTimeIncrementSSPRK3(ssprk_step)
+           call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+           forcingTimeIncrement = forcingTimeIncrementSSPRK3(ssprk_step)
            block => block % next
       end do
 
