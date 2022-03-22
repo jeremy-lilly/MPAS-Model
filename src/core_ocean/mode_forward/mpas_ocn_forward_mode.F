@@ -499,7 +499,7 @@ module ocn_forward_mode
 
       type (MPAS_timeInterval_type) :: timeStep
       character(len=StrKIND), pointer :: config_restart_timestamp_name, config_sw_absorption_type
-      character (len=StrKIND), pointer :: config_time_integrator
+      character(len=StrKIND), pointer :: config_time_integrator
 
       logical, pointer :: config_write_output_on_startup
       logical, pointer :: config_use_ecosysTracers

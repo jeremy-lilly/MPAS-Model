@@ -357,7 +357,7 @@ contains
          currentForcingTime)               ! forcingTime
 
     call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
-    call mpas_log_write('Forcing time ' // trim(timeStamp))
+    call mpas_log_write('Forcing time for atmospheric forcing' // trim(timeStamp))
 
     
     call mpas_advance_forcing_clock(forcingGroupHead, dtSimReverse)
@@ -368,7 +368,7 @@ contains
          currentForcingTime)               ! forcingTime
 
     call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
-    call mpas_log_write('Forcing time reversed ' // trim(timeStamp))
+    call mpas_log_write('Forcing time reversed for atmospheric forcing' // trim(timeStamp))
 
     ! perform post forcing
     block => domain % blocklist
@@ -644,7 +644,6 @@ contains
 
     ! convert config_dt to real
     call mpas_set_timeInterval(timeStepESMF, timeString=config_dt,ierr=err)
-    !call mpas_get_timeInterval(timeStepESMF, dt=dtSim)
 
     dtSim = forcingTimeIncrement
     dtSimReverse = -dtSim
@@ -652,28 +651,28 @@ contains
     ! use the forcing layer to get data
     call MPAS_forcing_get_forcing(&
          forcingGroupHead, &               ! forcingGroupHead
-         "ocn_atmospheric_forcing", &      ! forcingGroupName
+         "ocn_land_ice_forcing", &      ! forcingGroupName
          streamManager, &                  ! streamManager
          dtSim)                            ! dt
 
     call MPAS_forcing_get_forcing_time(&
          forcingGroupHead, &               ! forcingGroupHead
-         "ocn_atmospheric_forcing", &      ! forcingGroupName
+         "ocn_land_ice_forcing", &      ! forcingGroupName
          currentForcingTime)               ! forcingTime
 
     call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
-    call mpas_log_write('Forcing time ' // trim(timeStamp))
+    call mpas_log_write('Forcing time for land ice forcing' // trim(timeStamp))
 
     
     call mpas_advance_forcing_clock(forcingGroupHead, dtSimReverse)
 
     call MPAS_forcing_get_forcing_time(&
          forcingGroupHead, &               ! forcingGroupHead
-         "ocn_atmospheric_forcing", &      ! forcingGroupName
+         "ocn_land_ice_forcing", &      ! forcingGroupName
          currentForcingTime)               ! forcingTime
 
     call mpas_get_time(curr_time=currentForcingTime, dateTimeString=timeStamp, ierr=err)
-    call mpas_log_write('Forcing time reversed ' // trim(timeStamp))
+    call mpas_log_write('Forcing time reversed for land ice forcing' // trim(timeStamp))
 
     block => domain % blocklist
     do while (associated(block))
