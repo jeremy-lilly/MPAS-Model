@@ -169,6 +169,11 @@ module ocn_time_integration_ssprk3
     type (mpas_pool_iterator_type) :: groupItr
     character (len=StrKIND) :: modifiedGroupName
     character (len=StrKIND) :: configName
+      
+    ! State/Tend Field Pointers
+    type (field2DReal), pointer :: normalVelocityField, layerThicknessField
+    type (field2DReal), pointer :: wettingVelocityField
+    type (field3DReal), pointer :: tracersGroupField
 
     ! Tidal boundary condition
     logical, pointer :: config_use_tidal_forcing
@@ -387,8 +392,20 @@ module ocn_time_integration_ssprk3
 
       ! require that cells don't dry out
       if (config_use_wetting_drying) then
-         !TODO: MISSING FOR NOW
-      end if 
+         call mpas_timer_start("SSPRK3-prevent drying")
+
+         block => domain % blocklist
+         do while (associated(block))
+           call ocn_prevent_drying(block, weights_tend(ssprk_step), err)
+           block => block % next
+         end do
+         ! exchange fields for parallelization
+         call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=1)
+         call mpas_dmpar_field_halo_exch(domain, 'wettingVelocity')
+
+         call mpas_timer_stop("SSPRK3-prevent drying")
+         call mpas_threading_barrier()
+      end if
 
 
       ! Compute tendencies for velocity, thickness, and tracers.
@@ -616,7 +633,20 @@ module ocn_time_integration_ssprk3
 
       ! verify that cells are not dry at conclusion of time step
       if (config_use_wetting_drying) then
-         !TODO: MISSING FOR NOW
+        call mpas_timer_start("SSPRK3- check wet cells")
+
+        ! ensure existing layerThickness is valid
+        if (config_verify_not_dry) then
+          block => domain % blocklist
+            do while (associated(block))
+              call ocn_wetting_drying_verify(block, err)
+              block => block % next
+            end do
+        end if
+
+        call mpas_timer_stop("SSPRK3- check wet cells")
+        call mpas_threading_barrier()
+
       end if
 
       call mpas_timer_stop("SSPRK3-main loop")
