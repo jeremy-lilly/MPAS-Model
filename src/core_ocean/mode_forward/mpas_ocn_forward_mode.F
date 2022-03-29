@@ -26,6 +26,7 @@ module ocn_forward_mode
    use mpas_stream_manager
    use mpas_timekeeping
    use mpas_dmpar
+   use mpas_forcing
    use mpas_timer
    use mpas_log
    use mpas_decomp
@@ -81,6 +82,7 @@ module ocn_forward_mode
    use ocn_forcing
    use ocn_sea_ice
    use ocn_time_varying_forcing
+   use ocn_framework_forcing
 
    use ocn_constants
    use ocn_config
@@ -497,6 +499,7 @@ module ocn_forward_mode
 
       type (MPAS_timeInterval_type) :: timeStep
       character(len=StrKIND), pointer :: config_restart_timestamp_name, config_sw_absorption_type
+      character(len=StrKIND), pointer :: config_time_integrator
 
       logical, pointer :: config_write_output_on_startup
       logical, pointer :: config_use_ecosysTracers
@@ -519,6 +522,7 @@ module ocn_forward_mode
                                                    config_use_time_varying_atmospheric_forcing)
       call MPAS_pool_get_config(domain % configs, 'config_use_time_varying_land_ice_forcing', &
                                                    config_use_time_varying_land_ice_forcing)
+      call mpas_pool_get_config(domain % configs, 'config_time_integrator', config_time_integrator)
 
       ! Eventually, dt should be domain specific
       timeStep = mpas_get_clock_timestep(domain % clock, ierr=ierr)
@@ -559,7 +563,13 @@ module ocn_forward_mode
 
       ! initialize time-varying forcing
       call ocn_time_varying_forcing_init(domain)
-      call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+      
+      ! if using split-explicit, calculate time varying forcing terms once per
+      ! time-step as opposed at each RK substage as implemented in RK4, SSPRK3,
+      ! and LTS3
+      if ( config_time_integrator == 'split_explicit' ) then
+        call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+      endif
 
       ! During integration, time level 1 stores the model state at the beginning of the
       !   time step, and time level 2 stores the state advanced dt in time by timestep(...)
@@ -709,8 +719,15 @@ module ocn_forward_mode
            endif
          endif
 
-         ! read in next time level data required for time-varying forcing
-         call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+         if (config_time_integrator == 'split_explicit' ) then
+           ! if using split-explicit, calculate time varying forcing terms once per
+           ! time-step as opposed at each RK substage as implemented in RK4, SSPRK3,
+           ! and LTS3
+           call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+         else
+           ! increment forcing clock to next time-step
+           call mpas_advance_forcing_clock(forcingGroupHead, dt)
+         endif
 
          ! Validate that the state is OK to run with for the next timestep.
          call ocn_validate_state(domain, timeLevel=1)
