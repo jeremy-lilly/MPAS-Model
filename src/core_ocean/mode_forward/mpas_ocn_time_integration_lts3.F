@@ -482,23 +482,6 @@ module ocn_time_integration_lts3
          block => block % next
       end do
 
-      ! require that cells don't dry out
-      if (config_use_wetting_drying) then
-         call mpas_timer_start("LTS3-prevent drying")
-
-         block => domain % blocklist
-         do while (associated(block))
-           call ocn_prevent_drying(block, dt * 1.0, err)
-           block => block % next
-         end do
-         ! exchange fields for parallelization
-         call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=1)
-         call mpas_dmpar_field_halo_exch(domain, 'wettingVelocity')
-
-         call mpas_timer_stop("LTS3-prevent drying")
-         call mpas_threading_barrier()
-      end if
-
       block => domain % blocklist
       do while (associated(block))
 
@@ -574,8 +557,6 @@ module ocn_time_integration_lts3
 
          call mpas_pool_get_array(tendPool, 'normalVelocity', normalVelocityTend)
          call mpas_pool_get_array(tendPool, 'layerThickness', layerThicknessTend)
-         
-         call mpas_pool_get_array(diagnosticsPool, 'wettingVelocity', wettingVelocity)
 
          ! --- NORMAL VELOCITY
 
@@ -584,20 +565,17 @@ module ocn_time_integration_lts3
             do ie = 1, nEdgesInLTSHalo(iRegion,2)
                iEdge = edgesInLTSHalo(iRegion,2,ie)
                normalVelocityFirstStage(:,iEdge) =  normalVelocityCur(:,iEdge) + dt * normalVelocityTend(:,iEdge)
-               normalVelocityFirstStage(:,iEdge) = normalVelocityFirstStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
             end do
          end do
          ! --- coarse
          do ie = 1, nEdgesInLTSHalo(2,1)
             iEdge = edgesInLTSHalo(2,1,ie)
             normalVelocityFirstStage(:,iEdge) =  normalVelocityCur(:,iEdge) + dt * normalVelocityTend(:,iEdge)
-            normalVelocityFirstStage(:,iEdge) = normalVelocityFirstStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
          end do
          ! --- fine layers close to interface layers
          do ie = 1, nEdgesInLTSHalo(1,3)
             iEdge = edgesInLTSHalo(1,3,ie)
             normalVelocityFirstStage(:,iEdge) =  normalVelocityCur(:,iEdge) + dt * normalVelocityTend(:,iEdge)
-            normalVelocityFirstStage(:,iEdge) = normalVelocityFirstStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
          end do
     
  
@@ -748,24 +726,6 @@ module ocn_time_integration_lts3
          block => block % next
       end do
 
-      ! require that cells don't dry out
-      if (config_use_wetting_drying) then
-         call mpas_timer_start("LTS3-prevent drying")
-
-         block => domain % blocklist
-         do while (associated(block))
-           call ocn_prevent_drying(block, dt * 0.25, err)
-           block => block % next
-         end do
-         ! exchange fields for parallelization
-         call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=3)
-         call mpas_dmpar_field_halo_exch(domain, 'wettingVelocity')
-
-         call mpas_timer_stop("LTS3-prevent drying")
-         call mpas_threading_barrier()
-      end if
-
-
       block => domain % blocklist
       do while (associated(block))
 
@@ -847,8 +807,6 @@ module ocn_time_integration_lts3
 
          call mpas_pool_get_array(tendPool, 'normalVelocity', normalVelocityTend)
          call mpas_pool_get_array(tendPool, 'layerThickness', layerThicknessTend)
-         
-         call mpas_pool_get_array(diagnosticsPool, 'wettingVelocity', wettingVelocity)
 
          if(haveCoarse == 1 .or. haveInterface == 1) then
 
@@ -860,7 +818,6 @@ module ocn_time_integration_lts3
                normalVelocitySecondStage(:,iEdge) = weightOld * normalVelocityCur(:,iEdge) &
                                                   + weightNew * normalVelocityFirstStage(:,iEdge) &
                                                   + weightTend * dt * normalVelocityTend(:,iEdge)
-               normalVelocitySecondStage(:,iEdge) = normalVelocitySecondStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:, iEdge))
             end do
 
             ! --- interface layers
@@ -870,7 +827,6 @@ module ocn_time_integration_lts3
                   normalVelocitySecondStage(:,iEdge) = weightOld * normalVelocityCur(:,iEdge) &
                                                   + weightNew * normalVelocityFirstStage(:,iEdge) &
                                                   + weightTend * dt * normalVelocityTend(:,iEdge)
-                  normalVelocitySecondStage(:,iEdge) = normalVelocitySecondStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:, iEdge))
                end do
             end do
 
@@ -1110,24 +1066,6 @@ module ocn_time_integration_lts3
             block => block % next
          end do
 
-         ! require that cells don't dry out
-         if (config_use_wetting_drying) then
-            call mpas_timer_start("LTS3-prevent drying")
-
-            block => domain % blocklist
-            do while (associated(block))
-              call ocn_prevent_drying(block, dtFine * 1.0, err)
-              block => block % next
-            end do
-            ! exchange fields for parallelization
-            call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=1)
-            call mpas_dmpar_field_halo_exch(domain, 'wettingVelocity')
-             
-            call mpas_timer_stop("LTS3-prevent drying")
-            call mpas_threading_barrier()
-          end if
-
-
          block => domain % blocklist
          do while (associated(block))
 
@@ -1213,39 +1151,31 @@ module ocn_time_integration_lts3
 
             call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityFirstStage, 3)
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessFirstStage, 3)
-         
-            call mpas_pool_get_array(diagnosticsPool, 'wettingVelocity', wettingVelocity)
 
             if(haveFine == 1 .or. haveInterface == 1) then
 
                ! --- NORMAL VELOCITY
 
                ! --- interface layer 1 (correction)
-               ! note: this implmentation of wetting/drying should only work
-               ! for binary wetting and drying
                do ie = 1, nEdgesInLTSHalo(1,2)
                   iEdge = edgesInLTSHalo(1,2,ie)
                   normalVelocityCur(:,iEdge) = normalVelocityNew(:,iEdge)
-                  normalVelocityTendSum2nd(:,iEdge) = normalVelocityTendSum2nd(:,iEdge) &
-                                                      + normalVelocityTend(:,iEdge) !* (1.0_RKIND - wettingVelocity(:,iEdge))
+                  normalVelocityTendSum2nd(:,iEdge) = normalVelocityTendSum2nd(:,iEdge) + normalVelocityTend(:,iEdge)
                end do
                ! --- interface layer 2 (correction)
                do ie = 1, nEdgesInLTSHalo(2,2)
                   iEdge = edgesInLTSHalo(2,2,ie)
-                  normalVelocityTendSum2nd(:,iEdge) = normalVelocityTendSum2nd(:,iEdge) &
-                                                      + normalVelocityTend(:,iEdge) !* (1.0_RKIND - wettingVelocity(:,iEdge))
+                  normalVelocityTendSum2nd(:,iEdge) = normalVelocityTendSum2nd(:,iEdge) + normalVelocityTend(:,iEdge)
                end do
       
                ! --- fine (soln advancement)  
                do ie = 1, nEdgesInLTSHalo(1,1)
                   iEdge = edgesInLTSHalo(1,1,ie)
                   normalVelocityFirstStage(:,iEdge) =  normalVelocityCur(:,iEdge) + dtFine * normalVelocityTend(:,iEdge) !soln update for the fine
-                  normalVelocityFirstStage(:,iEdge) = normalVelocityFirstStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
                end do
                do ie = 1, nEdgesInLTSHalo(1,3)
                   iEdge = edgesInLTSHalo(1,3,ie)
                   normalVelocityFirstStage(:,iEdge) =  normalVelocityCur(:,iEdge) + dtFine * normalVelocityTend(:,iEdge) !soln update for the fine
-                  normalVelocityFirstStage(:,iEdge) = normalVelocityFirstStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
                end do
  
                ! --- LAYER THICKNESS
@@ -1488,24 +1418,6 @@ module ocn_time_integration_lts3
             block => block % next
          end do
 
-         ! require that cells don't dry out
-         if (config_use_wetting_drying) then
-            call mpas_timer_start("LTS3-prevent drying")
-
-            block => domain % blocklist
-            do while (associated(block))
-              call ocn_prevent_drying(block, dtFine * 0.25, err)
-              block => block % next
-            end do
-            ! exchange fields for parallelization
-            call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=3)
-            call mpas_dmpar_field_halo_exch(domain, 'wettingVelocity')
-             
-            call mpas_timer_stop("LTS3-prevent drying")
-            call mpas_threading_barrier()
-          end if
-
-
         block => domain % blocklist
          do while (associated(block))
 
@@ -1594,27 +1506,21 @@ module ocn_time_integration_lts3
 
             call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocitySecondStage, 4)
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessSecondStage, 4)
-         
-            call mpas_pool_get_array(diagnosticsPool, 'wettingVelocity', wettingVelocity)
 
             if(haveFine == 1 .or. haveInterface == 1) then
     
                ! --- NORMAL VELOCITY
 
                ! --- interface layer 1 (correction)
-               ! note: this implmentation of wetting/drying should only work
-               ! for binary wetting and drying
                do ie = 1, nEdgesInLTSHalo(1,2)
                   iEdge = edgesInLTSHalo(1,2,ie)
                   normalVelocityFirstStage(:,iEdge) = normalVelocityNew(:,iEdge)
-                  normalVelocityTendSum1st(:,iEdge) = normalVelocityTendSum1st(:,iEdge) &
-                                                      + normalVelocityTend(:,iEdge) !* (1.0_RKIND - wettingVelocity(:,iEdge))
+                  normalVelocityTendSum1st(:,iEdge) = normalVelocityTendSum1st(:,iEdge) + normalVelocityTend(:,iEdge)
                end do
                ! --- interface layer 2 (correction)
                do ie = 1, nEdgesInLTSHalo(2,2)
                   iEdge = edgesInLTSHalo(2,2,ie)
-                  normalVelocityTendSum1st(:,iEdge) = normalVelocityTendSum1st(:,iEdge) &
-                                                      + normalVelocityTend(:,iEdge) !* (1.0_RKIND - wettingVelocity(:,iEdge))
+                  normalVelocityTendSum1st(:,iEdge) = normalVelocityTendSum1st(:,iEdge) + normalVelocityTend(:,iEdge)
                end do
       
                ! --- fine (soln advancement)  
@@ -1622,13 +1528,11 @@ module ocn_time_integration_lts3
                   iEdge = edgesInLTSHalo(1,1,ie)
                   normalVelocitySecondStage(:,iEdge) =  weightOld * normalVelocityCur(:,iEdge) + weightNew * normalVelocityFirstStage(:,iEdge) &
                                                         + weightTend *  dtFine * normalVelocityTend(:,iEdge) !soln update for the fine
-                  normalVelocitySecondStage(:,iEdge) = normalvelocitySecondStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
                end do
                do ie = 1, nEdgesInLTSHalo(1,3)
                   iEdge = edgesInLTSHalo(1,3,ie)
                   normalVelocitySecondStage(:,iEdge) =  weightOld * normalVelocityCur(:,iEdge) + weightNew * normalVelocityFirstStage(:,iEdge) &
                                                         + weightTend *  dtFine * normalVelocityTend(:,iEdge) !soln update for the fine
-                  normalVelocitySecondStage(:,iEdge) = normalvelocitySecondStage(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
                end do
  
                ! --- LAYER THICKNESS
@@ -1879,23 +1783,6 @@ module ocn_time_integration_lts3
             block => block % next
          end do
 
-         ! require that cells don't dry out
-         if (config_use_wetting_drying) then
-            call mpas_timer_start("LTS3-prevent drying")
-
-            block => domain % blocklist
-            do while (associated(block))
-              call ocn_prevent_drying(block, dtFine * 2./3., err)
-              block => block % next
-            end do
-            ! exchange fields for parallelization
-            call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=4)
-            call mpas_dmpar_field_halo_exch(domain, 'wettingVelocity')
-             
-            call mpas_timer_stop("LTS3-prevent drying")
-            call mpas_threading_barrier()
-         end if
-
          block => domain % blocklist
          do while (associated(block))
 
@@ -1984,27 +1871,21 @@ module ocn_time_integration_lts3
 
             call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocitySecondStage, 4)
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessSecondStage, 4)
-         
-            call mpas_pool_get_array(diagnosticsPool, 'wettingVelocity', wettingVelocity)
 
             if(haveFine == 1 .or. haveInterface == 1) then
     
                ! --- NORMAL VELOCITY
 
                ! --- interface layer 1 (correction)
-               ! note: this implmentation of wetting/drying should only work
-               ! for binary wetting and drying
                do ie = 1, nEdgesInLTSHalo(1,2)
                   iEdge = edgesInLTSHalo(1,2,ie)
                   normalVelocitySecondStage(:,iEdge) = normalVelocityNew(:,iEdge)
-                  normalVelocityTendSum3rd(:,iEdge) = normalVelocityTendSum3rd(:,iEdge) &
-                                                      + normalVelocityTend(:,iEdge) !* (1.0_RKIND - wettingVelocity(:,iEdge))
+                  normalVelocityTendSum3rd(:,iEdge) = normalVelocityTendSum3rd(:,iEdge) + normalVelocityTend(:,iEdge)
                end do
                ! --- interface layer 2 (correction)
                do ie = 1, nEdgesInLTSHalo(2,2)
                   iEdge = edgesInLTSHalo(2,2,ie)
-                  normalVelocityTendSum3rd(:,iEdge) = normalVelocityTendSum3rd(:,iEdge) &
-                                                      + normalVelocityTend(:,iEdge) !* (1.0_RKIND - wettingVelocity(:,iEdge))
+                  normalVelocityTendSum3rd(:,iEdge) = normalVelocityTendSum3rd(:,iEdge) + normalVelocityTend(:,iEdge)
                end do
       
                ! --- fine (soln advancement)  
@@ -2012,13 +1893,11 @@ module ocn_time_integration_lts3
                   iEdge = edgesInLTSHalo(1,1,ie)
                   normalVelocityCur(:,iEdge) =  (1.0 / 3.0) * normalVelocityCur(:,iEdge) + (2.0 / 3.0) * normalVelocitySecondStage(:,iEdge) &
                                                         + (2.0 / 3.0) *  dtFine * normalVelocityTend(:,iEdge) !soln update for the fine
-                  normalVelocityCur(:,iEdge) = normalVelocityCur(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
                end do
                do ie = 1, nEdgesInLTSHalo(1,3)
                   iEdge = edgesInLTSHalo(1,3,ie)
                   normalVelocityCur(:,iEdge) =  (1.0 / 3.0) * normalVelocityCur(:,iEdge) + (2.0 / 3.0) * normalVelocitySecondStage(:,iEdge) &
                                                         + (2.0 / 3.0) *  dtFine * normalVelocityTend(:,iEdge) !soln update for the fine
-                  normalVelocityCur(:,iEdge) = normalVelocityCur(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
                end do
  
                ! --- LAYER THICKNESS
@@ -2372,23 +2251,6 @@ module ocn_time_integration_lts3
          block => block % next
       end do
 
-      ! require that cells don't dry out
-      if (config_use_wetting_drying) then
-         call mpas_timer_start("LTS3-prevent drying")
-
-         block => domain % blocklist
-         do while (associated(block))
-           call ocn_prevent_drying(block, dt * 2./3., err)
-           block => block % next
-         end do
-         ! exchange fields for parallelization
-         call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=4)
-         call mpas_dmpar_field_halo_exch(domain, 'wettingVelocity')
-
-         call mpas_timer_stop("LTS3-prevent drying")
-         call mpas_threading_barrier()
-      end if
-
       block => domain % blocklist
       do while (associated(block))
 
@@ -2478,7 +2340,6 @@ module ocn_time_integration_lts3
                iEdge = edgesInLTSHalo(2,1,ie)
                normalVelocityNew(:,iEdge) = (1.0 / 3.0)  * normalVelocityCur(:,iEdge) + (2.0 / 3.0) * normalVelocitySecondStage(:,iEdge) &
                                             + (2.0 / 3.0) * dt * normalVelocityTend(:,iEdge)
-               normalVelocityNew(:,iEdge) = normalVelocityNew(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
             end do
 
             ! --- LAYER THICKNESS
@@ -2567,8 +2428,6 @@ module ocn_time_integration_lts3
 
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
          call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
-         
-         call mpas_pool_get_array(diagnosticsPool, 'wettingVelocity', wettingVelocity)
 
          if (haveInterface == 1) then
 
@@ -2582,7 +2441,6 @@ module ocn_time_integration_lts3
                   iEdge = edgesInLTSHalo(iRegion,2,ie)
                   normalVelocityNew(:,iEdge) =  normalVelocityCur(:,iEdge) + weightTendSum2nd * dtFine * normalVelocityTendSum2nd(:,iEdge) &
                                                 + weightTendSum1st * dtFine * normalVelocityTendSum1st(:,iEdge) + weightTendSum3rd * dtFine * normalVelocityTendSum3rd(:,iEdge)
-                  normalVelocityNew(:,iEdge) = normalVelocityNew(:,iEdge) * (1.0_RKIND - wettingVelocity(:,iEdge))
                end do
 
                ! --- LAYER THICKNESS
@@ -2748,24 +2606,6 @@ module ocn_time_integration_lts3
       !
       !  A little clean up at the end
       !
-
-      ! verify that cells are not dry at conclusion of time step
-      if (config_use_wetting_drying) then
-        call mpas_timer_start("LTS3- check wet cells")
-
-        ! ensure existing layerThickness is valid
-        if (config_verify_not_dry) then
-          block => domain % blocklist
-            do while (associated(block))
-              call ocn_wetting_drying_verify(block, err)
-              block => block % next
-            end do
-        end if
-
-        call mpas_timer_stop("LTS3- check wet cells")
-        call mpas_threading_barrier()
-
-      end if
 
       call mpas_timer_start("LTS3-cleanup phase")
       block => domain % blocklist
