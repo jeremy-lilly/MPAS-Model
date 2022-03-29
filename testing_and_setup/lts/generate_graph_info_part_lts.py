@@ -29,7 +29,7 @@ def main(mesh, graph_info, num_blocks):
             else:
                 LTSRegionLocal[iCell-1] = int(3)  # interface
 
-    numBlocks = num_blocks  # usually 3 * NUM_PROCS
+    numBlocks = int(num_blocks)  # usually 3 * NUM_PROCS
 
     newf=""
     with open(graph_info + '.part.' + str(int(numBlocks)), 'r') as f:
@@ -77,7 +77,7 @@ def main(mesh, graph_info, num_blocks):
         print('If all procCells have been found, these two numbers are equal:',
               sum(procFoundCell[:]), nCells)
     
-    with open(graph_info + '.part.lts.' + str(int(numBlocks)), 'w') as f:
+    with open(graph_info + '.part.' + str(int(numBlocks)), 'w') as f:
         f.write(newf)
 
 
@@ -99,7 +99,7 @@ if __name__ == '__main__':
                         `input.nc`.')
 
     parser.add_argument('-g', '--graph-info', dest='graph_info',
-                        default='graph.info',
+                        default='graph.info.lts',
                         help='graph.info file corresponding to the mesh. \
                         Default is `graph.info.lts`.')
 
