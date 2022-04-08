@@ -31,6 +31,8 @@ def main(mesh, graph_info, num_blocks):
 
     numBlocks = int(num_blocks)  # usually 3 * NUM_PROCS
 
+    interfaceBlocksCount = np.zeros(numBlocks, dtype='i')
+
     newf=""
     with open(graph_info + '.part.' + str(int(numBlocks)), 'r') as f:
         lines = f.readlines()
@@ -65,6 +67,7 @@ def main(mesh, graph_info, num_blocks):
                 #tmp = 2 #this gives all the interface cells to block 2 
                 # (case C in the paper)
                 blockID = str(tmp)
+                interfaceBlocksCount[tmp] += 1
                 #if procCell % 2 == 0 :
                 #   tmp = 2
                 #   blockID = str(tmp)
@@ -79,6 +82,15 @@ def main(mesh, graph_info, num_blocks):
     
     with open(graph_info + '.part.' + str(int(numBlocks)), 'w') as f:
         f.write(newf)
+
+
+    for i, num in enumerate(interfaceBlocksCount[2::3]):
+        if num < 100:
+            print('WARNING: Interface block {} has {} cells'.format(3*i + 2, num))
+        #else:
+        #    print('Interface block {} has {} cells'.format(3*i + 2, num))
+        # END if
+    # END for
 
 
 if __name__ == '__main__':
