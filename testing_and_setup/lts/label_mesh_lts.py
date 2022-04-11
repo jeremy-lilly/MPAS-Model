@@ -323,6 +323,7 @@ def main(mesh, graph_info, num_interface, fine_region):
     txt += 'ratio of number of coarse cells to number of fine cells = {}\n'.format(numberRatio)
     txt += 'ratio of largest cell area to smallest cell area = {}\n'.format(areaRatio)
     txt += 'ratio of largest cell width to smallest cell width = {}\n'.format(widthRatio)
+    txt += 'number of interface layers = {}\n'.format(num_interface)
 
     print(txt)
 
