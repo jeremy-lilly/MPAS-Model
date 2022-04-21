@@ -123,6 +123,8 @@ contains
       real (kind=RKIND), dimension(:,:), intent(in), optional :: &
          tracersSurfaceLayerValue ! optional sfc tracer values for sfc
                                   ! displacement option
+      
+      logical, pointer :: config_disable_tr_all_tend
 
       !-----------------------------------------------------------------
       !
@@ -150,6 +152,12 @@ contains
       !*** initialize error flag
 
       err = 0
+
+      call mpas_pool_get_config(ocnConfigs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
+
+      if (config_disable_tr_all_tend) then
+          return
+      end if 
 
       !*** check for displacement choice
       !*** for linear EOS, only choice that impacts the
@@ -250,6 +258,8 @@ contains
          tracersSurfaceLayerValue ! optional sfc tracer values for sfc
                                   ! displacement option
 
+      logical, pointer :: config_disable_tr_all_tend
+
       !-----------------------------------------------------------------
       !
       ! Output variables
@@ -283,6 +293,12 @@ contains
       !*** initialize error flag
 
       err = 0
+
+      call mpas_pool_get_config(ocnConfigs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
+
+      if (config_disable_tr_all_tend) then
+          return
+      end if 
 
       !*** check for displacement choice
       !*** for linear EOS, only choice that impacts the

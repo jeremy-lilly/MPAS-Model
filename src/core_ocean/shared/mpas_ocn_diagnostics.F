@@ -146,6 +146,7 @@ contains
       integer :: timeLevel
       integer, pointer :: indexTemperature, indexSalinity
       logical, pointer :: config_use_cvmix_kpp
+      logical, pointer :: config_disable_tr_all_tend
       logical, pointer :: config_use_wetting_drying
       real (kind=RKIND), pointer :: config_apvm_scale_factor,  config_coef_3rd_order, config_cvmix_kpp_surface_layer_averaging
       character (len=StrKIND), pointer :: config_pressure_gradient_type
@@ -178,6 +179,7 @@ contains
                                              config_flux_attenuation_coefficient_runoff)
       call mpas_pool_get_config(ocnConfigs, 'config_use_wetting_drying', config_use_wetting_drying)
       call mpas_pool_get_config(ocnConfigs, 'config_thickness_flux_type', config_thickness_flux_type)
+      call mpas_pool_get_config(ocnConfigs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
 
       call mpas_pool_get_dimension(tracersPool, 'index_temperature', indexTemperature)
       call mpas_pool_get_dimension(tracersPool, 'index_salinity', indexSalinity)
@@ -322,8 +324,10 @@ contains
       !$omp master
       normalVelocity(:,nEdges+1) = -1e34
       layerThickness(:,nCells+1) = -1e34
-      activeTracers(indexTemperature,:,nCells+1) = -1e34
-      activeTracers(indexSalinity,:,nCells+1) = -1e34
+      if (.not. config_disable_tr_all_tend ) then
+        activeTracers(indexTemperature,:,nCells+1) = -1e34
+        activeTracers(indexSalinity,:,nCells+1) = -1e34
+      end if 
       !$omp end master
       call mpas_threading_barrier()
 
@@ -754,11 +758,13 @@ contains
       ! field will be updated below is better approximations are available
 
 !TDR need to consider how to handle tracersSurfaceValues
-      !$omp do schedule(runtime)
-      do iCell = 1, nCells
-         tracersSurfaceValue(:, iCell) = activeTracers(:,1, iCell)
-      end do
-      !$omp end do
+      if (.not. config_disable_tr_all_tend ) then
+          !$omp do schedule(runtime)
+          do iCell = 1, nCells
+             tracersSurfaceValue(:, iCell) = activeTracers(:,1, iCell)
+          end do
+          !$omp end do
+      end if 
 
       !$omp do schedule(runtime)
       do iEdge = 1, nEdges
@@ -1924,6 +1930,8 @@ contains
 
       integer, dimension(:), pointer :: maxLevelCell, maxLevelEdgeBot, maxLevelVertexBot
 
+      logical, pointer :: config_disable_tr_all_tend
+
       real (kind=RKIND), dimension(:), pointer :: real1DArr
       real (kind=RKIND), dimension(:, :), pointer :: real2DArr
       real (kind=RKIND), dimension(:, :, :), pointer :: real3DArr
@@ -1943,6 +1951,8 @@ contains
 
       integer :: debugUnit
       character (len=StrKIND) :: debugFilename, fieldName
+
+      call mpas_pool_get_config(ocnConfigs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
 
       if ( present(timeLevel) ) then
          timeLevelLocal = timeLevel
@@ -1984,10 +1994,12 @@ contains
          do iCell = 1, nCellsSolve
             do k = 1, maxLevelCell(iCell)
                thickNanFound = thickNanFound .or. ( .not. layerThickness(k, iCell) == layerThickness(k, iCell) )
-               do iTracer = 1, size(activeTracers, dim=1)
-                  tracersNanFound = tracersNanFound .or. &
-                                  ( .not. activeTracers(iTracer, k, iCell) == activeTracers(iTracer, k, iCell) )
-               end do
+               if (.not. config_disable_tr_all_tend) then
+                 do iTracer = 1, size(activeTracers, dim=1)
+                    tracersNanFound = tracersNanFound .or. &
+                                    ( .not. activeTracers(iTracer, k, iCell) == activeTracers(iTracer, k, iCell) )
+                 end do
+               end if
             end do
          end do
 
