@@ -175,11 +175,13 @@ contains
       end do
       !$omp end do
 
-      call ocn_vmix_coefs_const_build(meshPool, statePool, diagnosticsPool, err1, timeLevel)
-      call ocn_vmix_coefs_tanh_build(meshPool, statePool, diagnosticsPool, err2, timeLevel)
-      call ocn_vmix_coefs_rich_build(meshPool, statePool, diagnosticsPool, scratchPool, err3, timeLevel)
-      call ocn_vmix_coefs_cvmix_build(meshPool, statePool, forcingPool, diagnosticsPool, err4, timeLevel)
-      call ocn_vmix_coefs_redi_build(meshPool, statePool, diagnosticsPool, err5, timeLevel)
+      if (velVmixOn .or. tracerVmixOn) then
+        call ocn_vmix_coefs_const_build(meshPool, statePool, diagnosticsPool, err1, timeLevel)
+        call ocn_vmix_coefs_tanh_build(meshPool, statePool, diagnosticsPool, err2, timeLevel)
+        call ocn_vmix_coefs_rich_build(meshPool, statePool, diagnosticsPool, scratchPool, err3, timeLevel)
+        call ocn_vmix_coefs_cvmix_build(meshPool, statePool, forcingPool, diagnosticsPool, err4, timeLevel)
+        call ocn_vmix_coefs_redi_build(meshPool, statePool, diagnosticsPool, err5, timeLevel)
+      end if
 
       err = ior(ior(ior(err1, ior(err2, err3)), err4), err5)
 
@@ -656,20 +658,12 @@ contains
       logical, pointer :: config_cvmix_kpp_nonlocal_with_implicit_mix
       logical, pointer :: config_Rayleigh_friction, config_Rayleigh_bottom_friction, &
                           config_Rayleigh_damping_depth_variable
-      logical, pointer :: config_disable_tr_all_tend, config_disable_tr_vmix
 
       type (mpas_pool_iterator_type) :: groupItr
 
       character (len=StrKIND) :: modifiedGroupName
       integer, pointer :: indexTempFlux, indexSaltFlux, nVertLevels
       err = 0
-
-      call mpas_pool_get_config(ocnConfigs, 'config_disable_tr_all_tend', config_disable_tr_all_tend)
-      call mpas_pool_get_config(ocnConfigs, 'config_disable_tr_vmix', config_disable_tr_vmix)
-
-      if ( config_disable_tr_all_tend .or. config_disable_tr_vmix ) then
-        return
-      end if
 
       call mpas_timer_start('vmix imp')
 
@@ -757,51 +751,53 @@ contains
       !
 
       call mpas_timer_start('vmix solve tracers', .false.)
-      call mpas_pool_begin_iteration(tracersPool)
-      do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
+      if (tracerVmixOn) then
+          call mpas_pool_begin_iteration(tracersPool)
+          do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
 
-         if ( groupItr % memberType == MPAS_POOL_FIELD ) then
-            call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroup, timeLevel)
-            ! store tracers
-            if (trim(groupItr % memberName) == 'activeTracers') then
-               if (config_compute_active_tracer_budgets) then
-                  !$omp do schedule(runtime)
-                  do iCell = 1, nCells
-                     activeTracerVertMixTendency(:,:,iCell)=tracersGroup(:,:,iCell)
-                  end do
-                  !$omp end do
-               endif
-            endif
+             if ( groupItr % memberType == MPAS_POOL_FIELD ) then
+                call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroup, timeLevel)
+                ! store tracers
+                if (trim(groupItr % memberName) == 'activeTracers') then
+                   if (config_compute_active_tracer_budgets) then
+                      !$omp do schedule(runtime)
+                      do iCell = 1, nCells
+                         activeTracerVertMixTendency(:,:,iCell)=tracersGroup(:,:,iCell)
+                      end do
+                      !$omp end do
+                   endif
+                endif
 
-            if ( associated(tracersGroup) ) then
-               if (trim(groupItr % memberName) == 'activeTracers') then
-                  call mpas_pool_get_array(tracersSurfaceFluxPool, 'nonLocalSurfaceTracerFlux', &
-                           tracerGroupSurfaceFlux)
-               else
-                  modifiedGroupName = trim(groupItr % memberName) // "SurfaceFlux"
-                  call mpas_pool_get_array(tracersSurfaceFluxPool, trim(modifiedGroupName), &
-                          tracerGroupSurfaceFlux)
-               endif
+                if ( associated(tracersGroup) ) then
+                   if (trim(groupItr % memberName) == 'activeTracers') then
+                      call mpas_pool_get_array(tracersSurfaceFluxPool, 'nonLocalSurfaceTracerFlux', &
+                               tracerGroupSurfaceFlux)
+                   else
+                      modifiedGroupName = trim(groupItr % memberName) // "SurfaceFlux"
+                      call mpas_pool_get_array(tracersSurfaceFluxPool, trim(modifiedGroupName), &
+                              tracerGroupSurfaceFlux)
+                   endif
 
-               call ocn_tracer_vmix_tend_implicit(meshPool, dt, vertDiffTopOfCell, layerThickness, tracersGroup, &
-                        vertNonLocalFlux, tracerGroupSurfaceFlux,  &
-                        config_cvmix_kpp_nonlocal_with_implicit_mix, err)
-            end if
+                   call ocn_tracer_vmix_tend_implicit(meshPool, dt, vertDiffTopOfCell, layerThickness, tracersGroup, &
+                            vertNonLocalFlux, tracerGroupSurfaceFlux,  &
+                            config_cvmix_kpp_nonlocal_with_implicit_mix, err)
+                end if
 
-            ! difference tracers to compute influence of vertical mixing and divide by dt
-            if (trim(groupItr % memberName) == 'activeTracers') then
-               if (config_compute_active_tracer_budgets) then
-                  !$omp do schedule(runtime)
-                  do iCell = 1, nCells
-                     activeTracerVertMixTendency(:,:,iCell) = &
-                        (tracersGroup(:,:,iCell) - activeTracerVertMixTendency(:,:,iCell)) / dt
-                  end do
-                  !$omp end do
-               endif
-            endif
+                ! difference tracers to compute influence of vertical mixing and divide by dt
+                if (trim(groupItr % memberName) == 'activeTracers') then
+                   if (config_compute_active_tracer_budgets) then
+                      !$omp do schedule(runtime)
+                      do iCell = 1, nCells
+                         activeTracerVertMixTendency(:,:,iCell) = &
+                            (tracersGroup(:,:,iCell) - activeTracerVertMixTendency(:,:,iCell)) / dt
+                      end do
+                      !$omp end do
+                   endif
+                endif
 
-         end if
-      end do
+             end if
+          end do
+      end if
       call mpas_timer_stop('vmix solve tracers')
 
       call mpas_timer_stop('vmix imp')
