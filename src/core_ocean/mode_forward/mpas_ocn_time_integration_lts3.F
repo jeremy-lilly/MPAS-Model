@@ -450,7 +450,6 @@ module ocn_time_integration_lts3
          call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
       end if
       call mpas_timer_stop("LTS3-diagnostic halo update")
-      call mpas_threading_barrier()
 
       ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
       call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
@@ -477,7 +476,6 @@ module ocn_time_integration_lts3
          ! DIAGNOSTICS UPDATE ---
 
          call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
-         call mpas_threading_barrier()
 
          block => block % next
       end do
@@ -506,7 +504,6 @@ module ocn_time_integration_lts3
          ! VELOCITY: VERTICAL TRANSPORT COMPUTATION --- 
          call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessCur, &
                                               layerThicknessEdge, normalVelocityCur, sshCur, dt, vertAleTransportTop, err)
-         call mpas_threading_barrier()
 
          ! VELOCITY: TENDENCY COMPUTATION ---
          forcingTimeIncrement = 0.0_RKIND
@@ -524,12 +521,10 @@ module ocn_time_integration_lts3
          ! THICKNESS AND TRACERS: TENDENCY COMPUTATION ---
          call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
          call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dt, activeTracersOnlyIn, 1)
-         call mpas_threading_barrier()
 
          block => block % next
       end do
       call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
-      call mpas_threading_barrier()
 
       call mpas_timer_start("LTS3 advance soln")
       ! --- advance solution for interface layer 1, interface layer 2 and coarse with first stage of SSPRK
@@ -655,7 +650,6 @@ module ocn_time_integration_lts3
          block => block % next
       end do
       call mpas_timer_stop("LTS3 advance soln")
-      call mpas_threading_barrier()
 
       call mpas_timer_start("halo updates  LTS")
       call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
@@ -687,7 +681,6 @@ module ocn_time_integration_lts3
          call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
       end if
       call mpas_timer_stop("LTS3-diagnostic halo update")
-      call mpas_threading_barrier()
 
       ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
       call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
@@ -719,7 +712,6 @@ module ocn_time_integration_lts3
             ! DIAGNOSTICS UPDATE ---
 
             call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 3)
-            call mpas_threading_barrier()
 
          end if
 
@@ -760,7 +752,6 @@ module ocn_time_integration_lts3
             ! VERTICAL TRANSPORT COMPUTATION ---
             call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessFirstStage, &
                                               layerThicknessEdge, normalTransportVelocity, sshFirstStage, dt, vertAleTransportTop, err)
-            call mpas_threading_barrier()
 
             ! TENDENCIES COMPUTATION ---
             forcingTimeIncrement = dt
@@ -768,14 +759,12 @@ module ocn_time_integration_lts3
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
             call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dt, activeTracersOnlyIn, 3)
-            call mpas_threading_barrier()
            
          end if
 
          block => block % next
       end do
       call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
-      call mpas_threading_barrier()
 
       call mpas_timer_start("LTS3 advance soln")
       ! --- advance solution for interface layer 1, interface layer 2 and coarse with second stage of SSPRK
@@ -899,7 +888,6 @@ module ocn_time_integration_lts3
          block => block % next
       end do
       call mpas_timer_stop("LTS3 advance soln")
-      call mpas_threading_barrier()
 
       call mpas_timer_start("halo updates  LTS")
       call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
@@ -1025,7 +1013,6 @@ module ocn_time_integration_lts3
             call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
          end if
          call mpas_timer_stop("LTS3-diagnostic halo update")
-         call mpas_threading_barrier()
 
 
          ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
@@ -1059,7 +1046,6 @@ module ocn_time_integration_lts3
                ! DIAGNOSTICS UPDATE ---
 
                call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
-               call mpas_threading_barrier()
 
             end if
 
@@ -1097,7 +1083,6 @@ module ocn_time_integration_lts3
                ! VERTICAL TRANSPORT COMPUTATION ---
                call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessCur, &
                                                     layerThicknessEdge, normalTransportVelocity, sshCur, dtFine, vertAleTransportTop, err)
-               call mpas_threading_barrier()
 
                ! TENDENCIES COMPUTATION ---
                forcingTimeIncrement = (im-1)*dtFine + 0.0_RKIND
@@ -1105,14 +1090,12 @@ module ocn_time_integration_lts3
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 1)
-               call mpas_threading_barrier()
 
             end if
 
             block => block % next
          end do
          call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
-         call mpas_threading_barrier()
 
 
          call mpas_timer_start("advance soln LTS")
@@ -1378,7 +1361,6 @@ module ocn_time_integration_lts3
             call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
          end if
          call mpas_timer_stop("LTS3-diagnostic halo update")
-         call mpas_threading_barrier()
 
 
          ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
@@ -1411,7 +1393,6 @@ module ocn_time_integration_lts3
                ! DIAGNOSTICS UPDATE ---
 
                call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 3)
-               call mpas_threading_barrier()
 
             end if
 
@@ -1449,7 +1430,6 @@ module ocn_time_integration_lts3
                ! VERTICAL TRANSPORT COMPUTATION ---
                call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessFirstStage, &
                                                     layerThicknessEdge, normalTransportVelocity, sshFirstStage, dtFine, vertAleTransportTop, err)
-               call mpas_threading_barrier()
  
                ! TENDENCIES COMPUTATION ---
                forcingTimeIncrement = (im-1)*dtFine + dtFine
@@ -1457,14 +1437,12 @@ module ocn_time_integration_lts3
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 3)
-               call mpas_threading_barrier()
 
             end if
 
             block => block % next
          end do
          call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
-         call mpas_threading_barrier()
 
 
          call mpas_timer_start("advance soln LTS")
@@ -1743,7 +1721,6 @@ module ocn_time_integration_lts3
             call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
          end if
          call mpas_timer_stop("LTS3-diagnostic halo update")
-         call mpas_threading_barrier()
 
 
          ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
@@ -1776,7 +1753,6 @@ module ocn_time_integration_lts3
                ! DIAGNOSTICS UPDATE ---
 
                call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 4)
-               call mpas_threading_barrier()
 
             end if
 
@@ -1814,7 +1790,6 @@ module ocn_time_integration_lts3
                ! VERTICAL TRANSPORT COMPUTATION ---
                call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessSecondStage, &
                                                     layerThicknessEdge, normalTransportVelocity, sshSecondStage, dtFine, vertAleTransportTop, err)
-               call mpas_threading_barrier()
  
                ! TENDENCIES COMPUTATION ---
                forcingTimeIncrement = (im-1)*dtFine + dtFine/2.
@@ -1822,14 +1797,12 @@ module ocn_time_integration_lts3
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 4)
-               call mpas_threading_barrier()
 
             end if
 
             block => block % next
          end do
          call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
-         call mpas_threading_barrier()
 
 
          call mpas_timer_start("advance soln LTS")
@@ -2045,7 +2018,6 @@ module ocn_time_integration_lts3
               call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
             end if
             call mpas_timer_stop("LTS3-diagnostic halo update")
-            call mpas_threading_barrier()
 
             ! --- compute diagnostics for implicit vert diff for velocity, thickness, and tracers
             call mpas_timer_start("LTS3-update diagnostic variables for vert diff")
@@ -2076,7 +2048,6 @@ module ocn_time_integration_lts3
                   ! DIAGNOSTICS UPDATE ---
 
                   call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
-                  call mpas_threading_barrier()
 
                end if
 
@@ -2102,7 +2073,6 @@ module ocn_time_integration_lts3
             if (haveFine == 1) then
                call ocn_vmix_implicit(dtFine, meshPool, diagnosticsPool, statePool, forcingPool, scratchPool, err, 1)
             end if
-            call mpas_threading_barrier()
 
             block => block % next
          end do
@@ -2213,7 +2183,6 @@ module ocn_time_integration_lts3
          call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
       end if
       call mpas_timer_stop("LTS3-diagnostic halo update")
-      call mpas_threading_barrier()
 
       ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
       call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
@@ -2245,7 +2214,6 @@ module ocn_time_integration_lts3
             ! DIAGNOSTICS UPDATE ---
 
             call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 4)
-            call mpas_threading_barrier()
 
          end if
 
@@ -2282,7 +2250,6 @@ module ocn_time_integration_lts3
             ! VERTICAL TRANSPORT COMPUTATION ---
             call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessSecondStage, &
                                               layerThicknessEdge, normalTransportVelocity, sshSecondStage, dt, vertAleTransportTop, err)
-            call mpas_threading_barrier()
 
             ! TENDENCIES COMPUTATION ---
             forcingTimeIncrement = dt/2.
@@ -2290,14 +2257,12 @@ module ocn_time_integration_lts3
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
             call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dt, activeTracersOnlyIn, 4)
-            call mpas_threading_barrier()
 
          end if
 
          block => block % next
       end do
       call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
-      call mpas_threading_barrier()
 
       call mpas_timer_start("LTS3 advance soln")
       ! --- advance solution for coarse with third stage of SSPRK
@@ -2389,7 +2354,6 @@ module ocn_time_integration_lts3
          block => block % next
       end do
       call mpas_timer_stop("LTS3 advance soln")
-      call mpas_threading_barrier()
 
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- interface correction
@@ -2535,7 +2499,6 @@ module ocn_time_integration_lts3
            call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
          end if
          call mpas_timer_stop("LTS3-diagnostic halo update")
-         call mpas_threading_barrier()
 
          ! --- compute diagnostics for implicit vert diff for velocity, thickness, and tracers
          call mpas_timer_start("LTS3-update diagnostic variables for vert diff")
@@ -2567,7 +2530,6 @@ module ocn_time_integration_lts3
                ! DIAGNOSTICS UPDATE ---
 
                call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 2)
-               call mpas_threading_barrier()
 
             end if
 
@@ -2595,7 +2557,6 @@ module ocn_time_integration_lts3
          if( haveCoarse == 1 .or. haveInterface == 1 ) then
             call ocn_vmix_implicit(dt, meshPool, diagnosticsPool, statePool, forcingPool, scratchPool, err, 2)
          end if
-         call mpas_threading_barrier()
 
          block => block % next
       end do
@@ -2702,7 +2663,6 @@ module ocn_time_integration_lts3
            end do
          end if
 
-         call mpas_threading_barrier()
 
          ! Update the effective density in land ice if we're coupling to land ice
          call ocn_effective_density_in_land_ice_update(meshPool, forcingPool, statePool, scratchPool, err)
@@ -2716,7 +2676,6 @@ module ocn_time_integration_lts3
                           gradSSHX, gradSSHY, gradSSHZ,    &
                           gradSSHZonal, gradSSHMeridional, &
                           includeHalos = .true.)
-         call mpas_threading_barrier()
 
          !$omp do schedule(runtime)
          do iCell = 1, nCells
