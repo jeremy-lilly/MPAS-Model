@@ -2014,7 +2014,8 @@ module ocn_time_integration_lts3
          call mpas_timer_stop("advance soln LTS")
 
 
-         if ( (.not. config_disable_vel_vmix) .or. (.not. config_disable_tr_vmix) ) then
+         if ( (.not. (config_disable_vel_vmix .or. config_disable_vel_all_tend) ) .or. & 
+              (.not. (config_disable_tr_vmix .or. config_disable_tr_all_tend) ) ) then
 
             ! --- TODO: check if this halo update is needed or not
             call mpas_timer_start("halo updates  LTS")
@@ -2517,7 +2518,8 @@ module ocn_time_integration_lts3
       ! --- implicit vert diff for coarse and interface
       !
 
-      if ( (.not. config_disable_vel_vmix) .or. (.not. config_disable_tr_vmix) ) then
+      if ( (.not. (config_disable_vel_vmix .or. config_disable_vel_all_tend) ) .or. & 
+           (.not. (config_disable_tr_vmix .or. config_disable_tr_all_tend) ) ) then
 
          ! --- update halos for diagnostic variables
          if (config_use_cvmix_kpp) then
