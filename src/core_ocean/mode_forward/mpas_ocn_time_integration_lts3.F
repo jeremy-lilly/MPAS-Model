@@ -239,7 +239,7 @@ module ocn_time_integration_lts3
     weightTendSum2nd = 1.0 / 6.0
     weightTendSum3rd = 2.0 / 3.0
 
-    call mpas_timer_start("create extra pools LTS and init variables")
+    call mpas_timer_start("LTS3-init variables and create extra pools for LTS")
     block => domain % blocklist
     do while (associated(block))
        call mpas_pool_get_subpool(block % structs, 'state', statePool)
@@ -427,7 +427,9 @@ module ocn_time_integration_lts3
        block => block % next
     end do
 
-    call mpas_timer_stop("create extra pools LTS and init variables")
+    call mpas_timer_stop("LTS3-init variables and create extra pools for LTS")
+
+    call mpas_timer_start("LTS3-main loop")
 
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      ! BEGIN LTS SCHEME
@@ -452,7 +454,7 @@ module ocn_time_integration_lts3
       call mpas_timer_stop("LTS3-diagnostic halo update")
 
       ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
-      call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
+      call mpas_timer_start("LTS3-update diagnostic variables")
       block => domain % blocklist
       do while (associated(block))
 
@@ -479,7 +481,9 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
+      call mpas_timer_stop("LTS3-update diagnostic variables")
 
+      call mpas_timer_start("LTS3-compute tendencies vel/thick/tracer")
       block => domain % blocklist
       do while (associated(block))
 
@@ -524,9 +528,9 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
+      call mpas_timer_stop("LTS3-compute tendencies vel/thick/tracer")
 
-      call mpas_timer_start("LTS3 advance soln")
+      call mpas_timer_start("LTS3-advance soln")
       ! --- advance solution for interface layer 1, interface layer 2 and coarse with first stage of SSPRK
       block => domain % blocklist
       do while (associated(block))
@@ -649,20 +653,25 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("LTS3 advance soln")
+      call mpas_timer_stop("LTS3-advance soln")
 
-      call mpas_timer_start("halo updates  LTS")
       call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
       call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+      
+      call mpas_timer_start("LTS3-vel/thick prognostic halo update")
       call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=3)
       call mpas_dmpar_field_halo_exch(domain, 'layerThickness', timeLevel=3)
+      call mpas_timer_stop("LTS3-vel/thick prognostic halo update")
+      
+      
+      call mpas_timer_start("LTS3-tracer prognostic halo update")
       call mpas_pool_begin_iteration(tracersPool)
       do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
          if ( groupItr % memberType == MPAS_POOL_FIELD ) then
             call mpas_dmpar_field_halo_exch(domain, groupItr % memberName, timeLevel=3)
          end if
       end do
-      call mpas_timer_stop("halo updates  LTS")
+      call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- compute the second stage of SSPRK for interface layer 1, interface layer 2 and coarse
@@ -683,7 +692,7 @@ module ocn_time_integration_lts3
       call mpas_timer_stop("LTS3-diagnostic halo update")
 
       ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
-      call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
+      call mpas_timer_start("LTS3-update diagnostic variables")
       block => domain % blocklist
       do while (associated(block))
 
@@ -717,7 +726,10 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
+      call mpas_timer_stop("LTS3-update diagnostic variables")
 
+      
+      call mpas_timer_start("LTS3-compute tendencies vel/thick/tracer")
       block => domain % blocklist
       do while (associated(block))
 
@@ -764,9 +776,9 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
+      call mpas_timer_stop("LTS3-compute tendencies vel/thick/tracer")
 
-      call mpas_timer_start("LTS3 advance soln")
+      call mpas_timer_start("LTS3-advance soln")
       ! --- advance solution for interface layer 1, interface layer 2 and coarse with second stage of SSPRK
       block => domain % blocklist
       do while (associated(block))
@@ -887,20 +899,24 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("LTS3 advance soln")
+      call mpas_timer_stop("LTS3-advance soln")
 
-      call mpas_timer_start("halo updates  LTS")
       call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
       call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+      
+      call mpas_timer_start("LTS3-vel/thick prognostic halo update")
       call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=4)
       call mpas_dmpar_field_halo_exch(domain, 'layerThickness', timeLevel=4)
+      call mpas_timer_stop("LTS3-vel/thick prognostic halo update")
+      
+      call mpas_timer_start("LTS3-tracer prognostic halo update")
       call mpas_pool_begin_iteration(tracersPool)
       do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
          if ( groupItr % memberType == MPAS_POOL_FIELD ) then
             call mpas_dmpar_field_halo_exch(domain, groupItr % memberName, timeLevel=4)
          end if
       end do
-      call mpas_timer_stop("halo updates  LTS")
+      call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- substepping for fine soln advancement begins here. we also compute
@@ -908,7 +924,7 @@ module ocn_time_integration_lts3
 
       do im =1, M
 
-         call mpas_timer_start("interface prediction LTS")
+         call mpas_timer_start("LTS3-interface prediction")
          ! --- interpolate interface layer 1 values (this is the actual interface prediction) and store soln cur in soln new
          block => domain % blocklist
          do while (associated(block))
@@ -984,20 +1000,24 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
-         call mpas_timer_stop("interface prediction LTS")
+         call mpas_timer_stop("LTS3-interface prediction")
 
-         call mpas_timer_start("halo updates  LTS")
          call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
          call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+         
+         call mpas_timer_start("LTS3-vel/thick prognostic halo update")
          call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=1)
          call mpas_dmpar_field_halo_exch(domain, 'layerThickness', timeLevel=1)
+         call mpas_timer_stop("LTS3-vel/thick prognostic halo update")
+
+         call mpas_timer_start("LTS3-tracer prognostic halo update")
          call mpas_pool_begin_iteration(tracersPool)
          do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
             if ( groupItr % memberType == MPAS_POOL_FIELD ) then
                call mpas_dmpar_field_halo_exch(domain, groupItr % memberName, timeLevel=1)
             end if
          end do
-         call mpas_timer_stop("halo updates  LTS")
+         call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
          ! --- update halos for diagnostic variables
          if (config_use_cvmix_kpp) then
@@ -1016,7 +1036,7 @@ module ocn_time_integration_lts3
 
 
          ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
-         call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
+         call mpas_timer_start("LTS3-update diagnostic variables")
          block => domain % blocklist
          do while (associated(block))
 
@@ -1051,7 +1071,9 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
+         call mpas_timer_stop("LTS3-update diagnostic variables")
 
+         call mpas_timer_start("LTS3-compute tendencies vel/thick/tracer")
          block => domain % blocklist
          do while (associated(block))
 
@@ -1095,10 +1117,10 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
-         call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
+         call mpas_timer_stop("LTS3-compute tendencies vel/thick/tracer")
 
 
-         call mpas_timer_start("advance soln LTS")
+         call mpas_timer_start("LTS3-advance soln")
          ! --- advance fine solution (first stage of SSPRK) AND sum up the tendecies above into tendSum2nd for interface layer 1 and interface
          ! layer 2 also restore soln cur by copying it back from soln new
          block => domain % blocklist
@@ -1254,9 +1276,9 @@ module ocn_time_integration_lts3
             block => block % next
          end do
 
-         call mpas_timer_stop("advance soln LTS")
+         call mpas_timer_stop("LTS3-advance soln")
 
-         call mpas_timer_start("interface prediction LTS")
+         call mpas_timer_start("LTS3-interface prediction")
          ! --- interpolate interface layer 1 values (this is the actual interface prediction) and store soln cur in soln new
          block => domain % blocklist
          do while (associated(block))
@@ -1332,20 +1354,24 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
-         call mpas_timer_stop("interface prediction LTS")
+         call mpas_timer_stop("LTS3-interface prediction")
 
-         call mpas_timer_start("halo updates  LTS")
          call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool) 
          call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+         
+         call mpas_timer_start("LTS3-vel/thick prognostic halo update")
          call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=3)
          call mpas_dmpar_field_halo_exch(domain, 'layerThickness', timeLevel=3)
+         call mpas_timer_stop("LTS3-vel/thick prognostic halo update")
+
+         call mpas_timer_start("LTS3-tracer prognostic halo update")
          call mpas_pool_begin_iteration(tracersPool)
          do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
             if ( groupItr % memberType == MPAS_POOL_FIELD ) then
                call mpas_dmpar_field_halo_exch(domain, groupItr % memberName, timeLevel=3)
             end if
          end do
-         call mpas_timer_stop("halo updates  LTS")
+         call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
          ! --- update halos for diagnostic variables
          if (config_use_cvmix_kpp) then
@@ -1364,7 +1390,7 @@ module ocn_time_integration_lts3
 
 
          ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
-         call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
+         call mpas_timer_start("LTS3-update diagnostic variables")
          block => domain % blocklist
          do while (associated(block))
 
@@ -1398,8 +1424,10 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
+         call mpas_timer_stop("LTS3-update diagnostic variables")
 
-        block => domain % blocklist
+         call mpas_timer_start("LTS3-compute tendencies vel/thick/tracer")
+         block => domain % blocklist
          do while (associated(block))
 
             call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
@@ -1442,10 +1470,10 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
-         call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
+         call mpas_timer_stop("LTS3-compute tendencies vel/thick/tracer")
 
 
-         call mpas_timer_start("advance soln LTS")
+         call mpas_timer_start("LTS3-advance soln")
          ! --- advance fine solution (second stage of SSPRK) AND sum up the tendecies above into tendSum1st for interface layer 1 and interface
          ! layer 2 also restore soln first stage by copying it back from soln new
          block => domain % blocklist
@@ -1611,10 +1639,10 @@ module ocn_time_integration_lts3
             block => block % next
          end do
 
-         call mpas_timer_stop("advance soln LTS")
+         call mpas_timer_stop("LTS3-advance soln")
 
 
-         call mpas_timer_start("interface prediction LTS")
+         call mpas_timer_start("LTS3-interface prediction")
          ! --- interpolate interface layer 1 values (this is the actual interface prediction) and store soln cur in soln new
          block => domain % blocklist
          do while (associated(block))
@@ -1691,20 +1719,24 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
-         call mpas_timer_stop("interface prediction LTS")
+         call mpas_timer_stop("LTS3-interface prediction")
 
-         call mpas_timer_start("halo updates  LTS")
          call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
          call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+
+         call mpas_timer_start("LTS3-vel/thick prognostic halo update")
          call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=4)
          call mpas_dmpar_field_halo_exch(domain, 'layerThickness', timeLevel=4)
+         call mpas_timer_stop("LTS3-vel/thick prognostic halo update")
+
+         call mpas_timer_start("LTS3-tracer prognostic halo update")
          call mpas_pool_begin_iteration(tracersPool)
          do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
             if ( groupItr % memberType == MPAS_POOL_FIELD ) then
               call mpas_dmpar_field_halo_exch(domain, groupItr % memberName, timeLevel=4)
            end if
          end do
-         call mpas_timer_stop("halo updates  LTS")
+         call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
 
          ! --- update halos for diagnostic variables
@@ -1724,7 +1756,7 @@ module ocn_time_integration_lts3
 
 
          ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
-         call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
+         call mpas_timer_start("LTS3-update diagnostic variables")
          block => domain % blocklist
          do while (associated(block))
 
@@ -1758,7 +1790,9 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
+         call mpas_timer_stop("LTS3-update diagnostic variables")
 
+         call mpas_timer_start("LTS3-compute tendencies vel/thick/tracer")
          block => domain % blocklist
          do while (associated(block))
 
@@ -1802,10 +1836,10 @@ module ocn_time_integration_lts3
 
             block => block % next
          end do
-         call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
+         call mpas_timer_stop("LTS3-compute tendencies vel/thick/tracer")
 
 
-         call mpas_timer_start("advance soln LTS")
+         call mpas_timer_start("LTS3-advance soln")
          ! --- advance fine solution (third stage of SSPRK) AND sum up the tendecies above into tendSum3rd for interface layer 1 and interface
          ! layer 2 also restore soln second stage by copying it back from soln new
          block => domain % blocklist
@@ -1984,25 +2018,29 @@ module ocn_time_integration_lts3
             block => block % next
          end do
 
-         call mpas_timer_stop("advance soln LTS")
+         call mpas_timer_stop("LTS3-advance soln")
 
 
          if ( (.not. (config_disable_vel_vmix .or. config_disable_vel_all_tend) ) .or. & 
               (.not. (config_disable_tr_vmix .or. config_disable_tr_all_tend) ) ) then
 
             ! --- TODO: check if this halo update is needed or not
-            call mpas_timer_start("halo updates  LTS")
             call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
             call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+
+            call mpas_timer_start("LTS3-vel/thick prognostic halo update")
             call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=1)
             call mpas_dmpar_field_halo_exch(domain, 'layerThickness', timeLevel=1)
+            call mpas_timer_stop("LTS3-vel/thick prognostic halo update")
+
+            call mpas_timer_start("LTS3-tracer prognostic halo update")
             call mpas_pool_begin_iteration(tracersPool)
             do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
                if ( groupItr % memberType == MPAS_POOL_FIELD ) then
                  call mpas_dmpar_field_halo_exch(domain, groupItr % memberName, timeLevel=1)
               end if
             end do
-            call mpas_timer_stop("halo updates  LTS")
+            call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
             ! --- update halos for diagnostic variables
             if (config_use_cvmix_kpp) then
@@ -2081,7 +2119,7 @@ module ocn_time_integration_lts3
       end do ! --- end substepping
  
 
-      call mpas_timer_start("copy soln into new soln LTS")
+      call mpas_timer_start("LTS3-copy soln into new soln")
       ! --- copy old soln into new soln for the fine cells and edges
       block => domain % blocklist
       do while (associated(block))
@@ -2163,7 +2201,7 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("copy soln into new soln LTS")
+      call mpas_timer_stop("LTS3-copy soln into new soln")
 
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- compute the third stage of SSPRK for coarse
@@ -2185,7 +2223,7 @@ module ocn_time_integration_lts3
       call mpas_timer_stop("LTS3-diagnostic halo update")
 
       ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
-      call mpas_timer_start("LTS3-update diagnostic variables and compute tendencies")
+      call mpas_timer_start("LTS3-update diagnostic variables")
       block => domain % blocklist
       do while (associated(block))
 
@@ -2219,7 +2257,9 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
+      call mpas_timer_stop("LTS3-update diagnostic variables")
 
+      call mpas_timer_start("LTS3-compute tendencies vel/thick/tracer")
       block => domain % blocklist
       do while (associated(block))
 
@@ -2262,9 +2302,9 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("LTS3-update diagnostic variables and compute tendencies")
+      call mpas_timer_stop("LTS3-compute tendencies vel/thick/tracer")
 
-      call mpas_timer_start("LTS3 advance soln")
+      call mpas_timer_start("LTS3-advance soln")
       ! --- advance solution for coarse with third stage of SSPRK
       block => domain % blocklist
       do while (associated(block))
@@ -2353,13 +2393,13 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("LTS3 advance soln")
+      call mpas_timer_stop("LTS3-advance soln")
 
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- interface correction
       !
 
-      call mpas_timer_start("interface correction LTS")
+      call mpas_timer_start("LTS3-interface correction")
       ! --- correct solution for interface layer 1 and interface layer 2
       block => domain % blocklist
       do while (associated(block))
@@ -2463,20 +2503,24 @@ module ocn_time_integration_lts3
 
          block => block % next
       end do
-      call mpas_timer_stop("interface correction LTS")
+      call mpas_timer_stop("LTS3-interface correction")
 
-      call mpas_timer_start("halo updates  LTS")
       call mpas_pool_get_subpool(domain % blocklist % structs, 'state', statePool)
       call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+
+      call mpas_timer_start("LTS3-vel/thick prognostic halo update")
       call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=2)
       call mpas_dmpar_field_halo_exch(domain, 'layerThickness', timeLevel=2)
+      call mpas_timer_stop("LTS3-vel/thick prognostic halo update")
+
+      call mpas_timer_start("LTS3-tracer prognostic halo update")
       call mpas_pool_begin_iteration(tracersPool)
       do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
          if ( groupItr % memberType == MPAS_POOL_FIELD ) then
             call mpas_dmpar_field_halo_exch(domain, groupItr % memberName, timeLevel=2)
          end if
       end do
-      call mpas_timer_stop("halo updates  LTS")
+      call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- implicit vert diff for coarse and interface
@@ -2566,6 +2610,8 @@ module ocn_time_integration_lts3
       ! END LTS SCHEME
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+      call mpas_timer_stop("LTS3-main loop")
+      
       !
       !  A little clean up at the end
       !

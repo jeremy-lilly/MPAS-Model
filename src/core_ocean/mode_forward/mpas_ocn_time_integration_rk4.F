@@ -220,6 +220,7 @@ module ocn_time_integration_rk4
       ! Couple tracers time_levs(2) with layerThickness in time-levels
       ! Initialize RK weights
       !
+      call mpas_timer_start("RK4-init variables")
       block => domain % blocklist
       do while (associated(block))
          call mpas_pool_get_subpool(block % structs, 'state', statePool)
@@ -380,6 +381,8 @@ module ocn_time_integration_rk4
       forcingTimeIncrementRK4(2) = dt/2.
       forcingTimeIncrementRK4(3) = dt/2.
       forcingTimeIncrementRK4(4) = dt
+      
+      call mpas_timer_stop("RK4-init variables")
 
       call mpas_timer_start("RK4-main loop")
 
