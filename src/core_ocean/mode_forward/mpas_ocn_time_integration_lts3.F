@@ -468,7 +468,7 @@ module ocn_time_integration_lts3
 
          ! DIAGNOSTICS UPDATE ---
 
-         call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
+         !call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
 
          block => block % next
       end do
@@ -2736,6 +2736,23 @@ module ocn_time_integration_lts3
          call mpas_dmpar_exch_halo_field(effectiveDensityField)
          call mpas_timer_stop("LTS3-effective density halo")
       end if
+
+      block => domain % blocklist
+      do while (associated(block))
+
+         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+         call mpas_pool_get_subpool(block % structs, 'state', statePool)
+         call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+         call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
+         call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
+         call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+
+         ! DIAGNOSTICS UPDATE ---
+
+         call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 2)
+
+         block => block % next
+      end do
 
       block => domain % blocklist
       do while(associated(block))
