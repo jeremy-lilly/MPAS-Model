@@ -157,7 +157,7 @@ contains
                      ! Can't compute stats for 0D real...
                   else if ( fieldInfo % nDims == 1 ) then
                      block => domain % blocklist
-                     !do while ( associated(block) )
+                     do while ( associated(block) )
                         call mpas_pool_get_field(block % allFields, fieldName, ptr1DReal)
                         call mpas_pool_get_dimension(block % dimensions, 'nPoints', nPoints)
 
@@ -217,13 +217,11 @@ contains
                            ! Add field to allFields pool
                            call mpas_pool_add_field(block % allFields, ptr1DRealNew % fieldName, ptr1DRealNew)
                         end if
-                    !   block => block % next
-                    ! end do
+                       block => block % next
+                     end do
                   else if ( fieldInfo % nDims == 2 ) then
                      block => domain % blocklist
-                     !do while ( associated(block) ) ! jrl comment this loop --
-                     ! it breaks points stats when running with multiple blocks
-                     ! per rank
+                     do while ( associated(block) )
                         call mpas_pool_get_field(block % allFields, fieldName, ptr2DReal)
                         call mpas_pool_get_dimension(block % dimensions, 'nPoints', nPoints)
 
@@ -283,8 +281,8 @@ contains
                            ! Add field to allFields pool
                            call mpas_pool_add_field(block % allFields, ptr2DRealNew % fieldName, ptr2DRealNew)
                         end if
-                     !   block => block % next
-                     !end do
+                        block => block % next
+                     end do
                   else if ( fieldInfo % nDims == 3 ) then
                      block => domain % blocklist
                      do while ( associated(block) )
