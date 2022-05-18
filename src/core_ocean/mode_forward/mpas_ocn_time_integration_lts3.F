@@ -279,11 +279,6 @@ module ocn_time_integration_lts3
        call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityFirstStage, 3)
        call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocitySecondStage, 4)
 
-       call mpas_pool_get_array(statePool, 'ssh', sshCur, 1)
-       call mpas_pool_get_array(statePool, 'ssh', sshNew, 2)
-       call mpas_pool_get_array(statePool, 'ssh', sshFirstStage, 3)
-       call mpas_pool_get_array(statePool, 'ssh', sshSecondStage, 4)
-
        call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessCur, 1)
        call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
        call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessFirstStage, 3)
@@ -308,10 +303,6 @@ module ocn_time_integration_lts3
 
        !$omp do schedule(runtime) private(k)
        do iCell = 1, nCells
-          !TODO: is the initialization of sshCur needed?
-          sshFirstStage(iCell) = sshCur(iCell)
-          sshSecondStage(iCell) = sshCur(iCell)
-          sshNew(iCell) = sshCur(iCell)
           do k = 1, maxLevelCell(iCell)
              layerThicknessFirstStage(k, iCell) = layerThicknessCur(k, iCell)
              layerThicknessSecondStage(k, iCell) = layerThicknessCur(k, iCell)
