@@ -444,36 +444,7 @@ module ocn_time_integration_lts3
       end if
       call mpas_timer_stop("LTS3-diagnostic halo update")
 
-      ! --- compute diagnostics and tendencies for velocity, thickness, and tracers
-      call mpas_timer_start("LTS3-update diagnostic variables")
-      block => domain % blocklist
-      do while (associated(block))
-
-         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
-         call mpas_pool_get_subpool(block % structs, 'state', statePool)
-         call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
-         call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
-         call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
-         call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
-
-         call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
-         call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityCur, 1)
-         call mpas_pool_get_array(diagnosticsPool, 'normalTransportVelocity', normalTransportVelocity)
-
-         !$omp do schedule(runtime)
-         do iEdge = 1, nEdges
-            normalTransportVelocity(:, iEdge) = normalVelocityCur(:, iEdge)
-         end do
-         !$omp end do 
-
-         ! DIAGNOSTICS UPDATE ---
-
-         !call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
-
-         block => block % next
-      end do
-      call mpas_timer_stop("LTS3-update diagnostic variables")
-
+      ! --- compute tendencies for velocity, thickness, and tracers
       call mpas_timer_start("LTS3-compute tendencies vel/thick/tracer")
       block => domain % blocklist
       do while (associated(block))
