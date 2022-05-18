@@ -185,7 +185,9 @@ contains
                            end if
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr1DReal % fieldName), trim(ptr1DRealNew % fieldName))
+                           if ( .not. associated(block % prev) ) then
+                             call mpas_pool_add_config(AMInputFields, trim(ptr1DReal % fieldName), trim(ptr1DRealNew % fieldName))
+                           end if 
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr1DRealNew % array)
@@ -249,7 +251,9 @@ contains
 
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr2DReal % fieldName), trim(ptr2DRealNew % fieldName))
+                           if ( .not. associated(block % prev) ) then
+                             call mpas_pool_add_config(AMInputFields, trim(ptr2DReal % fieldName), trim(ptr2DRealNew % fieldName))
+                           end if
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr2DRealNew % array)
@@ -312,7 +316,9 @@ contains
                            end if
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr3DReal % fieldName), trim(ptr3DRealNew % fieldName))
+                           if ( .not. associated(block % prev) ) then 
+                             call mpas_pool_add_config(AMInputFields, trim(ptr3DReal % fieldName), trim(ptr3DRealNew % fieldName))
+                           end if
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr3DRealNew % array)
@@ -376,7 +382,9 @@ contains
                            end if
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr4DReal % fieldName), trim(ptr4DRealNew % fieldName))
+                           if ( .not. associated(block % prev) ) then
+                             call mpas_pool_add_config(AMInputFields, trim(ptr4DReal % fieldName), trim(ptr4DRealNew % fieldName))
+                           end if
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr4DRealNew % array)
@@ -440,7 +448,9 @@ contains
                            end if
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr5DReal % fieldName), trim(ptr5DRealNew % fieldName))
+                           if ( .not. associated(block % prev) ) then
+                             call mpas_pool_add_config(AMInputFields, trim(ptr5DReal % fieldName), trim(ptr5DRealNew % fieldName))
+                           end if
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr5DRealNew % array)
@@ -509,7 +519,9 @@ contains
                            end if
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr1DInt % fieldName), trim(ptr1DIntNew % fieldName))
+                           if ( .not. associated(block % prev) ) then
+                             call mpas_pool_add_config(AMInputFields, trim(ptr1DInt % fieldName), trim(ptr1DIntNew % fieldName))
+                           end if 
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr1DIntNew % array)
@@ -572,7 +584,9 @@ contains
                            end if
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr2DInt % fieldName), trim(ptr2DIntNew % fieldName))
+                           if ( .not. associated(block % prev) ) then
+                             call mpas_pool_add_config(AMInputFields, trim(ptr2DInt % fieldName), trim(ptr2DIntNew % fieldName))
+                           end if
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr2DIntNew % array)
@@ -635,7 +649,9 @@ contains
                            end if
 
                            ! Add input name to input name pool, with a value of the new name
-                           call mpas_pool_add_config(AMInputFields, trim(ptr3DInt % fieldName), trim(ptr3DIntNew % fieldName))
+                           if ( .not. associated(block % prev) ) then
+                             call mpas_pool_add_config(AMInputFields, trim(ptr3DInt % fieldName), trim(ptr3DIntNew % fieldName))
+                           end if
 
                            ! Deallocate array, so we can resize it.
                            deallocate(ptr3DIntNew % array)
@@ -931,6 +947,7 @@ contains
             do while ( associated(block) )
                call mpas_pool_get_subpool(block % structs, 'pointLocations', pointPool)
                call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
+               call mpas_pool_get_dimension(block % dimensions, 'nPoints', nPoints)
                call mpas_pool_get_array(pointPool, 'pointCellLocalID', pointCellLocalID)
 
                if ( fieldInfo % fieldType == MPAS_POOL_REAL ) then
