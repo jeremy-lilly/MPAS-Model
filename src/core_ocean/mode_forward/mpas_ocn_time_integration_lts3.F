@@ -288,7 +288,6 @@ module ocn_time_integration_lts3
        call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
 
        call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
-       
        forcingTimeIncrement = 0.0_RKIND
 
        !$omp do schedule(runtime) private(k)
@@ -466,13 +465,13 @@ module ocn_time_integration_lts3
          call mpas_pool_get_array(diagnosticsPool, 'layerThicknessEdge', layerThicknessEdge)
          call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
          call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+         forcingTimeIncrement = 0.0_RKIND
          
          ! VELOCITY: VERTICAL TRANSPORT COMPUTATION --- 
          call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessCur, &
                                               layerThicknessEdge, normalVelocityCur, sshCur, dt, vertAleTransportTop, err)
 
          ! VELOCITY: TENDENCY COMPUTATION ---
-         forcingTimeIncrement = 0.0_RKIND
          call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
          call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dt)
 
@@ -719,16 +718,16 @@ module ocn_time_integration_lts3
          call mpas_pool_get_array(diagnosticsPool, 'normalTransportVelocity', normalTransportVelocity)
         
          call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
-
-
+         forcingTimeIncrement = dt
+ 
          if(haveCoarse == 1 .or. haveInterface == 1) then
+
 
             ! VERTICAL TRANSPORT COMPUTATION ---
             call ocn_vert_transport_velocity_top(meshPool, verticalMeshPool, scratchPool, layerThicknessFirstStage, &
                                               layerThicknessEdge, normalTransportVelocity, sshFirstStage, dt, vertAleTransportTop, err)
 
             ! TENDENCIES COMPUTATION ---
-            forcingTimeIncrement = dt
             call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
@@ -1061,6 +1060,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
            
             call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+            forcingTimeIncrement = REAL((im-1))*dtFine + 0.0_RKIND
 
             if(haveFine == 1 .or. haveInterface == 1) then
 
@@ -1069,7 +1069,6 @@ module ocn_time_integration_lts3
                                                     layerThicknessEdge, normalTransportVelocity, sshCur, dtFine, vertAleTransportTop, err)
 
                ! TENDENCIES COMPUTATION ---
-               forcingTimeIncrement = (im-1)*dtFine + 0.0_RKIND
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
@@ -1414,6 +1413,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
             
             call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+            forcingTimeIncrement = REAL((im-1))*dtFine + dtFine
 
             if(haveFine == 1 .or. haveInterface == 1) then
 
@@ -1422,7 +1422,6 @@ module ocn_time_integration_lts3
                                                     layerThicknessEdge, normalTransportVelocity, sshFirstStage, dtFine, vertAleTransportTop, err)
  
                ! TENDENCIES COMPUTATION ---
-               forcingTimeIncrement = (im-1)*dtFine + dtFine
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
@@ -1780,6 +1779,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(diagnosticsPool, 'vertAleTransportTop', vertAleTransportTop)
            
             call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+            forcingTimeIncrement = REAL((im-1))*dtFine + dtFine/2.0_RKIND
 
            if(haveFine == 1 .or. haveInterface == 1) then
 
@@ -1788,7 +1788,6 @@ module ocn_time_integration_lts3
                                                     layerThicknessEdge, normalTransportVelocity, sshSecondStage, dtFine, vertAleTransportTop, err)
  
                ! TENDENCIES COMPUTATION ---
-               forcingTimeIncrement = (im-1)*dtFine + dtFine/2.
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
                call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dtFine)
                call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
@@ -2246,6 +2245,7 @@ module ocn_time_integration_lts3
          call mpas_pool_get_array(diagnosticsPool, 'normalTransportVelocity', normalTransportVelocity)
            
          call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+         forcingTimeIncrement = dt/2.0_RKIND
 
          if(haveCoarse == 1) then
 
@@ -2254,7 +2254,6 @@ module ocn_time_integration_lts3
                                               layerThicknessEdge, normalTransportVelocity, sshSecondStage, dt, vertAleTransportTop, err)
 
             ! TENDENCIES COMPUTATION ---
-            forcingTimeIncrement = dt/2.
             call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
             call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dt)
             call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
