@@ -1250,19 +1250,19 @@ contains
          forcingGroup ! the forcing group object
 
     real(kind=RKIND), intent(in) :: &
-         dt !< Input: the simulation time step
+         dt !< Input: the simulation time step in seconds
 
     type(MPAS_TimeInterval_type) :: &
          timeStep ! time step interval
 
     ! assuming it is not possible to give dts of months or years
-    integer :: DD, H, M, S, S_n, S_d, foundNumAndDen, powerOfTen
+    integer :: S, S_n, S_d, foundNumAndDen, powerOfTen
 
     real(kind=RKIND) :: factor
 
-    DD = dt / 86400_RKIND
-    H = dt / 3600_RKIND
-    M = dt / 60_RKIND
+    ! NOTE: this routine may break if dt has more than ~10
+    ! decimal places 
+
     S = dt
     S_n = 0
     S_d = 0
@@ -1289,7 +1289,7 @@ contains
     end if
 
     ! increment clock with timestep
-    call mpas_set_timeInterval(timeStep, DD=DD, H=H, M=M, S=S, S_n=S_n, S_d=S_d)
+    call mpas_set_timeInterval(timeStep, S=S, S_n=S_n, S_d=S_d)
     call mpas_advance_clock(forcingGroup % forcingClock, timeStep)
 
   end subroutine mpas_advance_forcing_clock!}}}
