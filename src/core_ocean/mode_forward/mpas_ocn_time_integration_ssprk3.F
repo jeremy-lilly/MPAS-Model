@@ -571,6 +571,7 @@ module ocn_time_integration_ssprk3
          call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
          call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
          call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+         call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
 
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
          call mpas_pool_get_array(diagnosticsPool, 'normalTransportVelocity', normalTransportVelocity)
