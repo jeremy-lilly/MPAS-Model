@@ -111,6 +111,7 @@ contains
 
       type (mpas_pool_type), intent(in) :: &
          forcingPool          !< Input: forcing variables
+
       !-----------------------------------------------------------------
       !
       ! input/output variables
@@ -143,6 +144,7 @@ contains
       real (kind=RKIND), dimension(:), pointer :: dcEdge
       real (kind=RKIND), dimension(:), allocatable :: JacobianDxDs,JacobianTz,JacobianSz,T1,T2,S1,S2
       real (kind=RKIND), dimension(:,:), allocatable :: FXTop, work1, work2
+      real (kind=RKIND), dimension(:), pointer :: atmosphericPressure
       real (kind=RKIND) :: invdcEdge, pGrad, sumAJTop, AJTop, FC, FCPrev, alpha, beta
 
       err = 0
@@ -159,6 +161,7 @@ contains
       call mpas_pool_get_array(meshPool, 'dcEdge', dcEdge)
       call mpas_pool_get_array(meshPool, 'edgeMask', edgeMask)
       call mpas_pool_get_array(forcingPool, 'tidalPotentialEta', tidalPotentialEta)
+      call mpas_pool_get_array(forcingPool, 'atmosphericPressure', atmosphericPressure)
 
       nEdges = nEdgesArray( 1 )
 
@@ -174,10 +177,16 @@ contains
             invdcEdge = 1.0_RKIND / dcEdge(iEdge)
 
             do k=1,maxLevelEdgeTop(iEdge)
-               tend(k,iEdge) = tend(k,iEdge) - gravity * edgeMask(k,iEdge) * invdcEdge * &
-                  ( ssh(cell2) - ssh(cell1) &                                ! original SSH gradient
-                    - tidalPotentialEta(cell2) + tidalPotentialEta(cell1) &  ! in-line tidal potential
-                    + betaSelfAttrLoad * (ssh(cell2) - ssh(cell1))  )        ! beta (constant) self attraction and loading
+               tend(k,iEdge) = tend(k,iEdge) - edgeMask(k,iEdge) * invdcEdge * &
+                  ( &
+                    gravity * &
+                    ( &
+                      (ssh(cell2) - ssh(cell1)) &                                ! original SSH gradient
+                      - (tidalPotentialEta(cell2) - tidalPotentialEta(cell1)) &  ! in-line tidal potential
+                      - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) &           ! beta (constant) self attraction and loading
+                    ) &
+                    + density0Inv * (atmosphericPressure(cell2) - atmosphericPressure(cell1)) &   ! surface pressure gradient
+                  )
             end do
          end do
          !$omp end do
