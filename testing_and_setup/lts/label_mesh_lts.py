@@ -52,7 +52,7 @@ def main(mesh, graph_info, num_interface, fine_region):
                                          [0.638, -1.781 + 2*math.pi],
                                          [0.481, -1.737 + 2*math.pi]])
     
-    delawareCoastRegionPts = np.array([[0.532, 4.862], 
+    eastUSCoastRegionPts = np.array([[0.532, 4.862], 
                                        [0.520, 4.946],
                                        [0.523, 5.018],
                                        [0.548, 5.082],
@@ -66,8 +66,8 @@ def main(mesh, graph_info, num_interface, fine_region):
                                        [0.813, 5.048],
                                        [0.556, 4.775]])
 
-    if fine_region == 'delaware_coast':
-        fineRegion = Polygon(delawareCoastRegionPts)
+    if fine_region == 'east_us_coast':
+        fineRegion = Polygon(eastUSCoastRegionPts)
     elif fine_region == 'western_atlantic':
         fineRegion = Polygon(westernAtlanticRegionPts)
     else:
@@ -363,10 +363,10 @@ if __name__ == '__main__':
                         simulation).')
 
     parser.add_argument('-r', '--fine-region', dest='fine_region',
-                        default='delaware_coast', type=str,
+                        default='east_us_coast', type=str,
                         help='Choice of the fine region. Choices are \
-                        `delaware_coast`, or `western_atlantic`. \
-                        Default is `delaware_coast`.')
+                        `east_us_coast`, or `western_atlantic`. \
+                        Default is `east_us_coast`.')
 
     args = parser.parse_args()
 
