@@ -53,23 +53,45 @@ def main(mesh, graph_info, num_interface, fine_region):
                                          [0.481, -1.737 + 2*math.pi]])
     
     eastUSCoastRegionPts = np.array([[0.532, 4.862], 
-                                       [0.520, 4.946],
-                                       [0.523, 5.018],
-                                       [0.548, 5.082],
-                                       [0.596, 5.131],
-                                       [0.639, 5.159],
-                                       [0.690, 5.175],
-                                       [0.731, 5.168],
-                                       [0.760, 5.147],
-                                       [0.777, 5.148],
-                                       [0.790, 5.181],
-                                       [0.813, 5.048],
-                                       [0.556, 4.775]])
+                                     [0.520, 4.946],
+                                     [0.523, 5.018],
+                                     [0.548, 5.082],
+                                     [0.596, 5.131],
+                                     [0.639, 5.159],
+                                     [0.690, 5.175],
+                                     [0.731, 5.168],
+                                     [0.760, 5.147],
+                                     [0.777, 5.148],
+                                     [0.790, 5.181],
+                                     [0.813, 5.048],
+                                     [0.556, 4.775]])
+
+    delawareCoastRegionPts = np.array([[0.598, 4.929],
+                                       [0.591, 4.953],
+                                       [0.591, 4.973],
+                                       [0.596, 4.991],
+                                       [0.607, 5.001],
+                                       [0.620, 5.005],
+                                       [0.633, 5.005],
+                                       [0.642, 4.999],
+                                       [0.683, 5.028],
+                                       [0.689, 5.046],
+                                       [0.697, 5.057],
+                                       [0.709, 5.064],
+                                       [0.719, 5.063],
+                                       [0.726, 5.059],
+                                       [0.727, 5.058], ###
+                                       [0.727, 5.053],
+                                       [0.730, 5.050],
+                                       [0.745, 5.011],
+                                       [0.654, 4.883]])
 
     if fine_region == 'east_us_coast':
         fineRegion = Polygon(eastUSCoastRegionPts)
     elif fine_region == 'western_atlantic':
         fineRegion = Polygon(westernAtlanticRegionPts)
+    elif fine_region == 'delaware_coast':
+        fineRegion = Polygon(delawareCoastRegionPts)
     else:
         print('Desired region is undefined')
         quit()
@@ -82,6 +104,7 @@ def main(mesh, graph_info, num_interface, fine_region):
     # check each cell, if in the fine region, label as fine
     print('Labeling fine cells...')
     for iCell in range(0, nCells):
+        #print('\r'+str(iCell)+'/'+str(nCells), end='')
         cellPt = Point(latCell[iCell], lonCell[iCell])
         if fineRegion.contains(cellPt):
             LTSRegion[iCell] = 1
@@ -365,8 +388,8 @@ if __name__ == '__main__':
     parser.add_argument('-r', '--fine-region', dest='fine_region',
                         default='east_us_coast', type=str,
                         help='Choice of the fine region. Choices are \
-                        `east_us_coast`, or `western_atlantic`. \
-                        Default is `east_us_coast`.')
+                        `delaware_coast`, `east_us_coast`, or \
+                        `western_atlantic`. Default is `east_us_coast`.')
 
     args = parser.parse_args()
 
