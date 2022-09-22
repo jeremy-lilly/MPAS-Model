@@ -462,7 +462,8 @@ contains
     windStressCoefficientLimit = 0.0035_RKIND
 
     t = daysSinceStartOfSim*86400_RKIND + forcingTimeIncrement
-    ramp = tanh((2.0_RKIND*t) / (86400_RKIND * config_forcing_ramp))
+    !ramp = tanh((2.0_RKIND*t) / (86400_RKIND * config_forcing_ramp))
+    ramp = 1.0_RKIND
 
     !$omp do schedule(runtime) private(iCell, windStressCoefficient)
     do iCell = 1, nCells
