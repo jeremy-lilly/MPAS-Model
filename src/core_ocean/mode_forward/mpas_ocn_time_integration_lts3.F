@@ -105,6 +105,7 @@ module ocn_time_integration_lts3
     ! LTS Pools
     type (mpas_pool_type), pointer :: LTSPool
     type (mpas_pool_type), pointer :: tendSlowPool
+    type (mpas_pool_type), pointer :: tendFastSumPool
     type (mpas_pool_type), pointer :: tendSum1stPool
     type (mpas_pool_type), pointer :: tracersTendSum1stPool
     type (mpas_pool_type), pointer :: tendSum2ndPool
@@ -115,6 +116,7 @@ module ocn_time_integration_lts3
     type (mpas_pool_type), pointer :: prevTendSum2ndPool, nextTendSum2ndPool
     type (mpas_pool_type), pointer :: prevTendSum3rdPool, nextTendSum3rdPool
     type (mpas_pool_type), pointer :: prevTendSlowPool, nextTendSlowPool
+    type (mpas_pool_type), pointer :: prevTendFastSumPool, nextTendFastSumPool
 
     ! Dimensions
     integer, pointer :: nCells, nEdges, nEdgesSolve, nVertLevels, haveFine, haveCoarse, haveInterface
@@ -153,7 +155,8 @@ module ocn_time_integration_lts3
     real (kind=RKIND), dimension(:), pointer :: bottomDepth
 
     ! Tend Array Pointers
-    real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTend, lowFreqDivergenceTend, normalVelocityTend, layerThicknessTend, normalVelocityTendSlow
+    real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTend, lowFreqDivergenceTend, normalVelocityTend, layerThicknessTend
+    real (kind=RKIND), dimension(:,:), pointer :: normalVelocityTendSlow, normalVelocityTendSumFast
     real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTendSum1st, lowFreqDivergenceTendSum1st, normalVelocityTendSum1st, layerThicknessTendSum1st
     real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTendSum2nd, lowFreqDivergenceTendSum2nd, normalVelocityTendSum2nd, layerThicknessTendSum2nd
     real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTendSum3rd, lowFreqDivergenceTendSum3rd, normalVelocityTendSum3rd, layerThicknessTendSum3rd
@@ -171,7 +174,7 @@ module ocn_time_integration_lts3
     real (kind=RKIND), dimension(:,:), pointer :: surfaceVelocity, sshGradient
 
     ! State Array Pointers
-    real (kind=RKIND), dimension(:,:), pointer :: normalVelocityCur, normalVelocityNew, normalVelocityFirstStage, normalVelocitySecondStage
+    real (kind=RKIND), dimension(:,:), pointer :: normalVelocityCur, normalVelocityNew, normalVelocityFirstStage, normalVelocitySecondStage, normalVelocityCurCopy
     real (kind=RKIND), dimension(:,:), pointer :: layerThicknessCur, layerThicknessNew, layerThicknessFirstStage, layerThicknessSecondStage
     real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessCur, highFreqThicknessNew, highFreqThicknessFirstStage, highFreqThicknessSecondStage
     real (kind=RKIND), dimension(:,:), pointer :: lowFreqDivergenceCur, lowFreqDivergenceNew, lowFreqDivergenceFirstStage, lowFreqDivergenceSecondStage 
@@ -260,11 +263,14 @@ module ocn_time_integration_lts3
        call mpas_pool_clone_pool(tendPool, tendSum3rdPool, 1)
        call mpas_pool_create_pool(tendSlowPool)
        call mpas_pool_clone_pool(tendPool, tendSlowPool, 1)
+       call mpas_pool_create_pool(tendFastSumPool)
+       call mpas_pool_clone_pool(tendPool, tendFastSumPool, 1)
 
        call mpas_pool_add_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
        call mpas_pool_add_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
        call mpas_pool_add_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
        call mpas_pool_add_subpool(block % structs, 'tend_slow', tendSlowPool)
+       call mpas_pool_add_subpool(block % structs, 'tend_fast_sum', tendFastSumPool)
 
        call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
        call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
@@ -280,6 +286,8 @@ module ocn_time_integration_lts3
        call mpas_pool_get_array(tendSum3rdPool, 'normalVelocity', normalVelocityTendSum3rd)
        call mpas_pool_get_array(tendSum3rdPool, 'layerThickness', layerThicknessTendSum3rd)
        call mpas_pool_get_subpool(tendSum3rdPool, 'tracersTend', tracersTendSum3rdPool)
+
+       call mpas_pool_get_array(tendFastSumPool, 'normalVelocity', normalVelocityTendSumFast)
 
        call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityCur, 1)
        call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
@@ -317,14 +325,16 @@ module ocn_time_integration_lts3
        end do
        !$omp end do
 
-       normalVelocityTendSum1st(:,:) = 0.0
-       layerThicknessTendSum1st(:,:) = 0.0
+       normalVelocityTendSum1st(:,:) = 0.0_RKIND
+       layerThicknessTendSum1st(:,:) = 0.0_RKIND
 
-       normalVelocityTendSum2nd(:,:) = 0.0
-       layerThicknessTendSum2nd(:,:) = 0.0
+       normalVelocityTendSum2nd(:,:) = 0.0_RKIND
+       layerThicknessTendSum2nd(:,:) = 0.0_RKIND
 
-       normalVelocityTendSum3rd(:,:) = 0.0
-       layerThicknessTendSum3rd(:,:) = 0.0
+       normalVelocityTendSum3rd(:,:) = 0.0_RKIND
+       layerThicknessTendSum3rd(:,:) = 0.0_RKIND
+
+       normalVelocityTendSumFast(:,:) = 0.0_RKIND
 
        call mpas_pool_begin_iteration(tracersPool)
        do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
@@ -337,9 +347,9 @@ module ocn_time_integration_lts3
                 call mpas_pool_get_array(tracersTendSum1stPool, modifiedGroupName, tracersGroupTendSum1st)
                 call mpas_pool_get_array(tracersTendSum2ndPool, modifiedGroupName, tracersGroupTendSum2nd)
                 call mpas_pool_get_array(tracersTendSum3rdPool, modifiedGroupName, tracersGroupTendSum3rd)
-                tracersGroupTendSum1st(:,:,:) = 0.0
-                tracersGroupTendSum2nd(:,:,:) = 0.0
-                tracersGroupTendSum3rd(:,:,:) = 0.0
+                tracersGroupTendSum1st(:,:,:) = 0.0_RKIND
+                tracersGroupTendSum2nd(:,:,:) = 0.0_RKIND
+                tracersGroupTendSum3rd(:,:,:) = 0.0_RKIND
 
                 call mpas_pool_get_array(tracersPool, trim(groupItr % memberName), tracersGroupCur, 1)
                 call mpas_pool_get_array(tracersPool, trim(groupItr % memberName), tracersGroupNew, 2)
@@ -368,11 +378,13 @@ module ocn_time_integration_lts3
           call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_2nd', tendSum2ndPool)         
           call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_3rd', tendSum3rdPool)         
           call mpas_pool_get_subpool(block % prev % structs, 'tend_slow', tendSlowPool)         
+          call mpas_pool_get_subpool(block % prev % structs, 'tend_fast_sum', tendFastSumPool)         
        else
           nullify(prevTendSum1stPool)
           nullify(prevTendSum2ndPool)
           nullify(prevTendSum3rdPool)
           nullify(prevTendSlowPool)
+          nullify(prevTendFastSumPool)
        end if
 
        if (associated(block % next)) then
@@ -380,17 +392,20 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_2nd', nextTendSum2ndPool)
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_3rd', nextTendSum3rdPool)
             call mpas_pool_get_subpool(block % next % structs, 'tend_slow', nextTendSlowPool)
+            call mpas_pool_get_subpool(block % next % structs, 'tend_fast_sum', nextTendFastSumPool)
        else
           nullify(nextTendSum1stPool)
           nullify(nextTendSum2ndPool)
           nullify(nextTendSum3rdPool)
           nullify(nextTendSlowPool)
+          nullify(nextTendFastSumPool)
        end if
 
        call mpas_pool_get_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
        call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
        call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
        call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
+       call mpas_pool_get_subpool(block % structs, 'tend_fast_sum', tendFastSumPool)
 
        if (associated(prevTendSum1stPool) .and. associated(nextTendSum1stPool)) then
           call mpas_pool_link_pools(tendSum1stPool, prevTendSum1stPool, nextTendSum1stPool)
@@ -432,10 +447,21 @@ module ocn_time_integration_lts3
           call mpas_pool_link_pools(tendSlowPool)
        end if
 
+       if (associated(prevTendFastSumPool) .and. associated(nextTendFastSumPool)) then
+          call mpas_pool_link_pools(tendFastSumPool, prevTendFastSumPool, nextTendFastSumPool)
+       else if (associated(prevTendFastSumPool)) then
+          call mpas_pool_link_pools(tendFastSumPool, prevTendFastSumPool)
+       else if (associated(nextTendFastSumPool)) then
+          call mpas_pool_link_pools(tendFastSumPool,nextPool=nextTendFastSumPool)
+       else
+          call mpas_pool_link_pools(tendFastSumPool)
+       end if
+
        call mpas_pool_link_parinfo(block, tendSum1stPool)
        call mpas_pool_link_parinfo(block, tendSum2ndPool)
        call mpas_pool_link_parinfo(block, tendSum3rdPool)
        call mpas_pool_link_parinfo(block, tendSlowPool)
+       call mpas_pool_link_parinfo(block, tendFastSumPool)
 
        block => block % next
     end do
@@ -921,6 +947,11 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
             call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
             call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
+
+            call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityCur, 1)   
+            call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityCurCopy, 5)  
+
+            normalVelocityCurCopy(:,:) = normalVelocityCur(:,:) 
 
             if(haveFine == 1 .or. haveInterface == 1) then
 
@@ -1921,6 +1952,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
             call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
             call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
+            call mpas_pool_get_subpool(block % structs, 'tend_fast_sum', tendFastSumPool)
             call mpas_pool_get_subpool(block % structs, 'state', statePool)
             call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
             call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
@@ -1942,6 +1974,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(tendSum3rdPool, 'layerThickness', layerThicknessTendSum3rd)
 
             call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow)
+            call mpas_pool_get_array(tendFastSumPool, 'normalVelocity', normalVelocityTendSumFast)
 
             call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
@@ -1960,6 +1993,7 @@ module ocn_time_integration_lts3
                if (config_LTS_split) then
 
                   normalVelocityTend(:,:) = normalVelocityTend(:,:) + normalVelocityTendSlow(:,:)
+                  normalVelocityTendSumFast(:,:) = normalVelocityTendSumFast(:,:) + normalVelocityTend(:,:) / REAL(M)
 
                end if
     
@@ -2208,6 +2242,8 @@ module ocn_time_integration_lts3
          call mpas_pool_get_subpool(block % structs, 'state', statePool)
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
          call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
+         call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
+         call mpas_pool_get_subpool(block % structs, 'tend_fast_sum', tendFastSumPool)
          call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
 
          call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
@@ -2219,22 +2255,42 @@ module ocn_time_integration_lts3
          call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
 
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityCur, 1)
+         call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityCurCopy, 5)
          call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessCur, 1)
 
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
          call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
 
+         call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow)
+         call mpas_pool_get_array(tendFastSumPool, 'normalVelocity', normalVelocityTendSumFast)
+
          if(haveFine == 1) then
 
-            ! --- normal velocity
-            do ie = 1, nEdgesInLTSHalo(1,1) 
-               iEdge = edgesInLTSHalo(1,1,ie)
-               normalVelocityNew(:,iEdge) = normalVelocityCur(:,iEdge)
-            end do
-            do ie = 1, nEdgesInLTSHalo(1,3)
-               iEdge = edgesInLTSHalo(1,3,ie)
-               normalVelocityNew(:,iEdge) = normalVelocityCur(:,iEdge)
-            end do
+            if (.not. config_LTS_split) then
+
+               ! --- normal velocity
+               do ie = 1, nEdgesInLTSHalo(1,1) 
+                  iEdge = edgesInLTSHalo(1,1,ie)
+                  normalVelocityNew(:,iEdge) = normalVelocityCur(:,iEdge)
+               end do
+               do ie = 1, nEdgesInLTSHalo(1,3)
+                  iEdge = edgesInLTSHalo(1,3,ie)
+                  normalVelocityNew(:,iEdge) = normalVelocityCur(:,iEdge)
+               end do
+
+            else
+
+               ! --- normal velocity
+               do ie = 1, nEdgesInLTSHalo(1,1)
+                  iEdge = edgesInLTSHalo(1,1,ie)
+                  normalVelocityNew(:,iEdge) = normalVelocityCurCopy(:,iEdge) - dt * (normalVelocityTendSumFast(:,iEdge) - normalVelocityTendSlow(:,iEdge))
+               end do
+               do ie = 1, nEdgesInLTSHalo(1,3)
+                  iEdge = edgesInLTSHalo(1,3,ie)
+                  normalVelocityNew(:,iEdge) = normalVelocityCurCopy(:,iEdge) - dt * (normalVelocityTendSumFast(:,iEdge) - normalVelocityTendSlow(:,iEdge))
+               end do
+
+            end if
 
             ! --- layer thickness
             do ic = 1, nCellsInLTSHalo(1,1) 
@@ -2860,16 +2916,19 @@ module ocn_time_integration_lts3
          call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
          call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
          call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
+         call mpas_pool_get_subpool(block % structs, 'tend_fast_sum', tendFastSumPool)
 
          call mpas_pool_destroy_pool(tendSum1stPool)
          call mpas_pool_destroy_pool(tendSum2ndPool)
          call mpas_pool_destroy_pool(tendSum3rdPool)
          call mpas_pool_destroy_pool(tendSlowPool)
+         call mpas_pool_destroy_pool(tendFastSumPool)
 
          call mpas_pool_remove_subpool(block % structs, 'tend_sum_1st')
          call mpas_pool_remove_subpool(block % structs, 'tend_sum_2nd')
          call mpas_pool_remove_subpool(block % structs, 'tend_sum_3rd')
          call mpas_pool_remove_subpool(block % structs, 'tend_slow')
+         call mpas_pool_remove_subpool(block % structs, 'tend_fast_sum')
 
          block => block % next
       end do
