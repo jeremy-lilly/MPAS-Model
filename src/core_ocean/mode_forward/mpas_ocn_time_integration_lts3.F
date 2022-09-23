@@ -3173,10 +3173,13 @@ module ocn_time_integration_lts3
      type (domain_type), intent(inout) :: domain
 
      logical, pointer :: config_pressure_gradient_split_ssh
+     logical, pointer :: config_use_tidal_potential_forcing
 
      call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
+     call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
 
      config_pressure_gradient_split_ssh = .false.
+     config_use_tidal_potential_forcing = .true.
 
      end subroutine setConfigsForSlowTends
 
@@ -3195,6 +3198,7 @@ module ocn_time_integration_lts3
      logical, pointer :: config_disable_vel_surface_stress
      logical, pointer :: config_disable_vel_topographic_wave_drag
      logical, pointer :: config_disable_vel_explicit_bottom_drag
+     logical, pointer :: config_use_tidal_potential_forcing
 
      call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
      call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
@@ -3203,6 +3207,7 @@ module ocn_time_integration_lts3
      call mpas_pool_get_config(domain % configs, 'config_disable_vel_surface_stress', config_disable_vel_surface_stress)
      call mpas_pool_get_config(domain % configs, 'config_disable_vel_topographic_wave_drag', config_disable_vel_topographic_wave_drag)
      call mpas_pool_get_config(domain % configs, 'config_disable_vel_explicit_bottom_drag', config_disable_vel_explicit_bottom_drag)
+     call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
 
      config_pressure_gradient_split_ssh = .true.
      config_pressure_gradient_split_other_terms = .false.
@@ -3211,6 +3216,7 @@ module ocn_time_integration_lts3
      config_disable_vel_surface_stress = .true.
      config_disable_vel_topographic_wave_drag = .true.
      config_disable_vel_explicit_bottom_drag = .true.
+     config_use_tidal_potential_forcing = .false.
 
      end subroutine setConfigsForFastTends
 
