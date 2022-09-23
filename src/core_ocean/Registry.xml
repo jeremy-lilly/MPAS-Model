@@ -198,6 +198,9 @@
                 <nml_option name="config_dt_scaling_LTS"                          type="integer"       default_value="4"
                                         description="This is the positive integer M that defines dtFine for LTS, dtFine = dt / M"
                 />
+                <nml_option name="config_LTS_split"                          type="logical"       default_value="false"
+                                        description="If true, the slow tendencies are not updated with the new solution during the fine sub-stepping."
+                />
 	</nml_record>
 	<nml_record name="ALE_vertical_grid" mode="forward">
 		<nml_option name="config_vert_coord_movement" type="character" default_value="uniform_stretching" units="unitless"
@@ -1081,6 +1084,14 @@
 					description="Form of pressure gradient terms in momentum equation. For most applications, the gradient of pressure and layer mid-depth are appropriate.  For isopycnal coordinates, one may use the gradient of the Montgomery potential.  The sea surface height gradient (ssh_gradient) option is for barotropic, depth-averaged pressure."
 					possible_values="'ssh_gradient', 'pressure_and_zmid' or 'Jacobian_from_density' or 'Jacobian_from_TS' or 'MontgomeryPotential'"
 		/>
+                <nml_option name="config_pressure_gradient_split_ssh" type="logical" default_value="true" units="unitless"
+                                        description="This isolates the ssh term in the ssh_gradient pressure gradient formulation."
+                                        possible_values="'true', 'false'"
+                />
+                <nml_option name="config_pressure_gradient_split_other_terms" type="logical" default_value="true" units="unitless"
+                                        description="This isolates the term that are not ssh in the ssh_gradient pressure gradient formulation."
+                                        possible_values="'true', 'false'"
+                />
 		<nml_option name="config_common_level_weight" type="real" default_value="0.5" units="unitless"
 					description="The weight between standard Jacobian and weighted Jacobian, $\gamma$."
 					possible_values="any real between 0 and 1"

@@ -104,6 +104,7 @@ module ocn_time_integration_lts3
 
     ! LTS Pools
     type (mpas_pool_type), pointer :: LTSPool
+    type (mpas_pool_type), pointer :: tendSlowPool
     type (mpas_pool_type), pointer :: tendSum1stPool
     type (mpas_pool_type), pointer :: tracersTendSum1stPool
     type (mpas_pool_type), pointer :: tendSum2ndPool
@@ -113,6 +114,7 @@ module ocn_time_integration_lts3
     type (mpas_pool_type), pointer :: prevTendSum1stPool, nextTendSum1stPool
     type (mpas_pool_type), pointer :: prevTendSum2ndPool, nextTendSum2ndPool
     type (mpas_pool_type), pointer :: prevTendSum3rdPool, nextTendSum3rdPool
+    type (mpas_pool_type), pointer :: prevTendSlowPool, nextTendSlowPool
 
     ! Dimensions
     integer, pointer :: nCells, nEdges, nEdgesSolve, nVertLevels, haveFine, haveCoarse, haveInterface
@@ -129,6 +131,7 @@ module ocn_time_integration_lts3
     logical, pointer :: config_disable_thick_all_tend
     logical, pointer :: config_disable_vel_all_tend
     logical, pointer :: config_disable_tr_all_tend
+    logical, pointer :: config_LTS_split
     real (kind=RKIND), pointer :: config_mom_del4
     real (kind=RKIND), pointer :: config_drying_min_cell_height
     logical, pointer :: config_use_wetting_drying
@@ -150,7 +153,7 @@ module ocn_time_integration_lts3
     real (kind=RKIND), dimension(:), pointer :: bottomDepth
 
     ! Tend Array Pointers
-    real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTend, lowFreqDivergenceTend, normalVelocityTend, layerThicknessTend
+    real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTend, lowFreqDivergenceTend, normalVelocityTend, layerThicknessTend, normalVelocityTendSlow
     real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTendSum1st, lowFreqDivergenceTendSum1st, normalVelocityTendSum1st, layerThicknessTendSum1st
     real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTendSum2nd, lowFreqDivergenceTendSum2nd, normalVelocityTendSum2nd, layerThicknessTendSum2nd
     real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTendSum3rd, lowFreqDivergenceTendSum3rd, normalVelocityTendSum3rd, layerThicknessTendSum3rd
@@ -203,6 +206,7 @@ module ocn_time_integration_lts3
 
     ! Get config options
     call mpas_pool_get_config(domain % configs, 'config_dt_scaling_LTS', config_dt_scaling_LTS)
+    call mpas_pool_get_config(domain % configs, 'config_LTS_split', config_LTS_split)
     call mpas_pool_get_config(domain % configs, 'config_mom_del4', config_mom_del4)
     call mpas_pool_get_config(domain % configs, 'config_filter_btr_mode', config_filter_btr_mode)
     call mpas_pool_get_config(domain % configs, 'config_prescribe_velocity', config_prescribe_velocity)
@@ -254,10 +258,13 @@ module ocn_time_integration_lts3
        call mpas_pool_clone_pool(tendPool, tendSum2ndPool, 1)
        call mpas_pool_create_pool(tendSum3rdPool)
        call mpas_pool_clone_pool(tendPool, tendSum3rdPool, 1)
+       call mpas_pool_create_pool(tendSlowPool)
+       call mpas_pool_clone_pool(tendPool, tendSlowPool, 1)
 
        call mpas_pool_add_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
        call mpas_pool_add_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
        call mpas_pool_add_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
+       call mpas_pool_add_subpool(block % structs, 'tend_slow', tendSlowPool)
 
        call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
        call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
@@ -360,25 +367,30 @@ module ocn_time_integration_lts3
           call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_1st', tendSum1stPool)
           call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_2nd', tendSum2ndPool)         
           call mpas_pool_get_subpool(block % prev % structs, 'tend_sum_3rd', tendSum3rdPool)         
+          call mpas_pool_get_subpool(block % prev % structs, 'tend_slow', tendSlowPool)         
        else
           nullify(prevTendSum1stPool)
           nullify(prevTendSum2ndPool)
           nullify(prevTendSum3rdPool)
+          nullify(prevTendSlowPool)
        end if
 
        if (associated(block % next)) then
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_1st', nextTendSum1stPool)
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_2nd', nextTendSum2ndPool)
             call mpas_pool_get_subpool(block % next % structs, 'tend_sum_3rd', nextTendSum3rdPool)
+            call mpas_pool_get_subpool(block % next % structs, 'tend_slow', nextTendSlowPool)
        else
           nullify(nextTendSum1stPool)
           nullify(nextTendSum2ndPool)
           nullify(nextTendSum3rdPool)
+          nullify(nextTendSlowPool)
        end if
 
        call mpas_pool_get_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
        call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
        call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
+       call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
 
        if (associated(prevTendSum1stPool) .and. associated(nextTendSum1stPool)) then
           call mpas_pool_link_pools(tendSum1stPool, prevTendSum1stPool, nextTendSum1stPool)
@@ -410,9 +422,20 @@ module ocn_time_integration_lts3
           call mpas_pool_link_pools(tendSum3rdPool)
        end if
 
+       if (associated(prevTendSlowPool) .and. associated(nextTendSlowPool)) then
+          call mpas_pool_link_pools(tendSlowPool, prevTendSlowPool, nextTendSlowPool)
+       else if (associated(prevTendSlowPool)) then
+          call mpas_pool_link_pools(tendSlowPool, prevTendSlowPool)
+       else if (associated(nextTendSlowPool)) then
+          call mpas_pool_link_pools(tendSlowPool,nextPool=nextTendSlowPool)
+       else
+          call mpas_pool_link_pools(tendSlowPool)
+       end if
+
        call mpas_pool_link_parinfo(block, tendSum1stPool)
        call mpas_pool_link_parinfo(block, tendSum2ndPool)
        call mpas_pool_link_parinfo(block, tendSum3rdPool)
+       call mpas_pool_link_parinfo(block, tendSlowPool)
 
        block => block % next
     end do
@@ -879,6 +902,78 @@ module ocn_time_integration_lts3
       end do
       call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
+      ! -------------------------------------- IF SPLITTING IS ON  --------------------------------------
+      ! -------------------------------------- COMPUTE SLOW TEND FOR FINE -------------------------------
+
+      if (config_LTS_split) then
+
+         ! --- compute diagnostics 
+         call mpas_timer_start("LTS3-update diagnostic variables")
+         block => domain % blocklist
+         do while (associated(block))
+
+            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+            call mpas_pool_get_subpool(block % structs, 'state', statePool)
+            call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+            call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
+            call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
+            call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
+            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
+            call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
+            call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
+
+            if(haveFine == 1 .or. haveInterface == 1) then
+
+               ! DIAGNOSTICS UPDATE --- (we really only need it for the velocity diagnostics)
+
+               call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
+
+            end if
+
+            block => block % next
+         end do
+         call mpas_timer_stop("LTS3-update diagnostic variables")
+
+         call mpas_timer_start("LTS3-slow tend computation")
+
+         ! set configs to compute only the slow terms on the momentum equation
+         call setConfigsForSlowTends(domain)
+
+         block => domain % blocklist
+         do while (associated(block))
+
+            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+            call mpas_pool_get_subpool(block % structs, 'state', statePool)
+            call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+            call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
+            call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
+            call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+            call mpas_pool_get_subpool(block % structs, 'verticalMesh', verticalMeshPool)
+            call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
+            call mpas_pool_get_subpool(block % structs, 'tend', tendSlowPool)
+            call mpas_pool_get_subpool(block % structs, 'shortwave', swForcingPool)
+            call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
+            call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
+            call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+            forcingTimeIncrement = 0.0_RKIND
+
+            if(haveFine == 1 .or. haveInterface == 1) then
+
+               ! TENDENCIES COMPUTATION --- (this is only for the momentum equation)
+               call ocn_tend_vel(tendSlowPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dt)
+
+            end if
+
+            block => block % next
+         end do
+
+         ! set configs to compute only the fast terms on the momentum equation
+         call setConfigsForFastTends(domain)
+
+         call mpas_timer_stop("LTS3-slow tend computation")
+      end if
+
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- substepping for fine soln advancement begins here. we also compute
       ! the correction terms for the interface to be used after the substepping
@@ -1089,6 +1184,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
             call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
             call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
+            call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
             call mpas_pool_get_subpool(block % structs, 'state', statePool)
             call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
             call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
@@ -1109,6 +1205,8 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(tendSum2ndPool, 'normalVelocity', normalVelocityTendSum2nd)
             call mpas_pool_get_array(tendSum2ndPool, 'layerThickness', layerThicknessTendSum2nd)
 
+            call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow)
+
             call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
 
@@ -1119,6 +1217,12 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessFirstStage, 3)
 
             if(haveFine == 1 .or. haveInterface == 1) then
+
+               if (config_LTS_split) then
+
+                  normalVelocityTend(:,:) = normalVelocityTend(:,:) + normalVelocityTendSlow(:,:)
+
+               end if
 
                ! --- NORMAL VELOCITY
 
@@ -1442,6 +1546,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
             call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
             call mpas_pool_get_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
+            call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
             call mpas_pool_get_subpool(block % structs, 'state', statePool)
             call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
             call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
@@ -1462,6 +1567,8 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(tendSum1stPool, 'normalVelocity', normalVelocityTendSum1st)
             call mpas_pool_get_array(tendSum1stPool, 'layerThickness', layerThicknessTendSum1st)
 
+            call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow)
+
             call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
 
@@ -1475,6 +1582,12 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessSecondStage, 4)
 
             if(haveFine == 1 .or. haveInterface == 1) then
+
+               if (config_LTS_split) then
+
+                  normalVelocityTend(:,:) = normalVelocityTend(:,:) + normalVelocityTendSlow(:,:)
+
+               end if
     
                ! --- NORMAL VELOCITY
 
@@ -1808,6 +1921,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
             call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
             call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
+            call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
             call mpas_pool_get_subpool(block % structs, 'state', statePool)
             call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
             call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
@@ -1828,6 +1942,8 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(tendSum3rdPool, 'normalVelocity', normalVelocityTendSum3rd)
             call mpas_pool_get_array(tendSum3rdPool, 'layerThickness', layerThicknessTendSum3rd)
 
+            call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow)
+
             call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
 
@@ -1841,6 +1957,12 @@ module ocn_time_integration_lts3
             call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessSecondStage, 4)
 
             if(haveFine == 1 .or. haveInterface == 1) then
+
+               if (config_LTS_split) then
+
+                  normalVelocityTend(:,:) = normalVelocityTend(:,:) + normalVelocityTendSlow(:,:)
+
+               end if
     
                ! --- NORMAL VELOCITY
 
@@ -2167,6 +2289,15 @@ module ocn_time_integration_lts3
       ! --------------------------------------  STEP  ------------------------------------------
       ! --- compute the third stage of SSPRK for coarse
       !
+
+     
+      ! reset confis for third stage of coarse if split is on
+      if (config_LTS_split) then
+
+         call resetConfigs(domain) 
+
+      end if
+
      
       ! --- update halos for diagnostic variables
       if (config_use_cvmix_kpp) then
@@ -2729,14 +2860,17 @@ module ocn_time_integration_lts3
          call mpas_pool_get_subpool(block % structs, 'tend_sum_1st', tendSum1stPool)
          call mpas_pool_get_subpool(block % structs, 'tend_sum_2nd', tendSum2ndPool)
          call mpas_pool_get_subpool(block % structs, 'tend_sum_3rd', tendSum3rdPool)
+         call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
 
          call mpas_pool_destroy_pool(tendSum1stPool)
          call mpas_pool_destroy_pool(tendSum2ndPool)
          call mpas_pool_destroy_pool(tendSum3rdPool)
+         call mpas_pool_destroy_pool(tendSlowPool)
 
          call mpas_pool_remove_subpool(block % structs, 'tend_sum_1st')
          call mpas_pool_remove_subpool(block % structs, 'tend_sum_2nd')
          call mpas_pool_remove_subpool(block % structs, 'tend_sum_3rd')
+         call mpas_pool_remove_subpool(block % structs, 'tend_slow')
 
          block => block % next
       end do
@@ -2970,6 +3104,91 @@ module ocn_time_integration_lts3
     ! END: CHECK TO SEE IF THE INTERFACE BLOCKS HAVE ENOUGH CELLS
 
     end subroutine ocn_time_integration_lts3_init
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     subroutine setConfigsForSlowTends(domain)
+
+     implicit none
+
+     type (domain_type), intent(inout) :: domain
+
+     logical, pointer :: config_pressure_gradient_split_ssh
+
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
+
+     config_pressure_gradient_split_ssh = .false.
+
+     end subroutine setConfigsForSlowTends
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     subroutine setConfigsForFastTends(domain)
+
+     implicit none
+
+     type (domain_type), intent(inout) :: domain   
+
+     logical, pointer :: config_pressure_gradient_split_ssh
+     logical, pointer :: config_pressure_gradient_split_other_terms
+     logical, pointer :: config_use_time_varying_atmospheric_forcing
+     logical, pointer :: config_disable_vel_coriolis
+     logical, pointer :: config_disable_vel_surface_stress
+     logical, pointer :: config_disable_vel_topographic_wave_drag
+     logical, pointer :: config_disable_vel_explicit_bottom_drag
+
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
+     call mpas_pool_get_config(domain % configs, 'config_use_time_varying_atmospheric_forcing', config_use_time_varying_atmospheric_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_coriolis', config_disable_vel_coriolis)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_surface_stress', config_disable_vel_surface_stress)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_topographic_wave_drag', config_disable_vel_topographic_wave_drag)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_explicit_bottom_drag', config_disable_vel_explicit_bottom_drag)
+
+     config_pressure_gradient_split_ssh = .true.
+     config_pressure_gradient_split_other_terms = .false.
+     config_use_time_varying_atmospheric_forcing = .false.
+     config_disable_vel_coriolis = .true.
+     config_disable_vel_surface_stress = .true.
+     config_disable_vel_topographic_wave_drag = .true.
+     config_disable_vel_explicit_bottom_drag = .true.
+
+     end subroutine setConfigsForFastTends
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     subroutine resetConfigs(domain)
+
+     implicit none
+
+     type (domain_type), intent(inout) :: domain
+
+     logical, pointer :: config_pressure_gradient_split_ssh
+     logical, pointer :: config_pressure_gradient_split_other_terms
+     logical, pointer :: config_use_time_varying_atmospheric_forcing
+     logical, pointer :: config_disable_vel_coriolis
+     logical, pointer :: config_disable_vel_surface_stress
+     logical, pointer :: config_disable_vel_topographic_wave_drag
+     logical, pointer :: config_disable_vel_explicit_bottom_drag
+
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
+     call mpas_pool_get_config(domain % configs, 'config_use_time_varying_atmospheric_forcing', config_use_time_varying_atmospheric_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_coriolis', config_disable_vel_coriolis)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_surface_stress', config_disable_vel_surface_stress)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_topographic_wave_drag', config_disable_vel_topographic_wave_drag)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_explicit_bottom_drag', config_disable_vel_explicit_bottom_drag)
+
+     config_pressure_gradient_split_other_terms = .true.
+     config_use_time_varying_atmospheric_forcing = .true.
+     config_disable_vel_coriolis = .false.
+     config_disable_vel_surface_stress = .false.
+     config_disable_vel_topographic_wave_drag = .false.
+     config_disable_vel_explicit_bottom_drag = .false.
+     
+     end subroutine resetConfigs
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    real function sphere_distance(lat1, lon1, lat2, lon2, radius)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
