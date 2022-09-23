@@ -903,7 +903,7 @@ module ocn_time_integration_lts3
       call mpas_timer_stop("LTS3-tracer prognostic halo update")
 
       ! -------------------------------------- IF SPLITTING IS ON  --------------------------------------
-      ! -------------------------------------- COMPUTE SLOW TEND FOR FINE -------------------------------
+      ! ------------------------ COMPUTE SLOW TEND FOR FINE AND INTERFACE CORRECTION --------------------
 
       if (config_LTS_split) then
 
@@ -919,7 +919,6 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
             call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
             call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-            call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
             call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
             call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
 
@@ -951,7 +950,7 @@ module ocn_time_integration_lts3
             call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
             call mpas_pool_get_subpool(block % structs, 'verticalMesh', verticalMeshPool)
             call mpas_pool_get_subpool(block % structs, 'LTS', LTSPool)
-            call mpas_pool_get_subpool(block % structs, 'tend', tendSlowPool)
+            call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
             call mpas_pool_get_subpool(block % structs, 'shortwave', swForcingPool)
             call mpas_pool_get_array(LTSPool, 'haveFine', haveFine)
             call mpas_pool_get_array(LTSPool, 'haveInterface', haveInterface)
