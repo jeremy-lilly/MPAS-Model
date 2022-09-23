@@ -185,7 +185,7 @@ contains
                     ( &
                       sshTermSplit * (ssh(cell2) - ssh(cell1)) &                                ! original SSH gradient
                       - otherTermsSplit * (tidalPotentialEta(cell2) - tidalPotentialEta(cell1)) &  ! in-line tidal potential
-                      - otherTermsSplit * betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) &           ! beta (constant) self attraction and loading
+                      - sshTermSplit * betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) &           ! beta (constant) self attraction and loading
                     ) &
                     + otherTermsSplit * density0Inv * (atmosphericPressure(cell2) - atmosphericPressure(cell1)) &   ! surface pressure gradient
                   )

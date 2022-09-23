@@ -3173,13 +3173,48 @@ module ocn_time_integration_lts3
      type (domain_type), intent(inout) :: domain
 
      logical, pointer :: config_pressure_gradient_split_ssh
+     logical, pointer :: config_pressure_gradient_split_other_terms
+     logical, pointer :: config_use_time_varying_atmospheric_forcing
+     logical, pointer :: config_disable_vel_coriolis
+     logical, pointer :: config_disable_vel_surface_stress
+     logical, pointer :: config_disable_vel_topographic_wave_drag
+     logical, pointer :: config_disable_vel_explicit_bottom_drag
      logical, pointer :: config_use_tidal_potential_forcing
+     logical, pointer :: config_use_bulk_wind_stress
 
      call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
+     call mpas_pool_get_config(domain % configs, 'config_use_time_varying_atmospheric_forcing', config_use_time_varying_atmospheric_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_coriolis', config_disable_vel_coriolis)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_surface_stress', config_disable_vel_surface_stress)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_topographic_wave_drag', config_disable_vel_topographic_wave_drag)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_explicit_bottom_drag', config_disable_vel_explicit_bottom_drag)
      call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_use_bulk_wind_stress', config_use_bulk_wind_stress)
 
-     config_pressure_gradient_split_ssh = .false.
-     config_use_tidal_potential_forcing = .true.
+     ! pressure gradient tendency terms
+     config_pressure_gradient_split_ssh = .false. !this has the ssh terms (also SAL)
+     config_pressure_gradient_split_other_terms = .true. !this has atmos pressure and tidal potential 
+     ! this below has to be true if config_pressure_gradient_split_other_terms = true
+     config_use_tidal_potential_forcing = .true. !computes the tidal potential
+
+     ! time varying forcing term computes wind speed and atmos pressure
+     ! so it has to be true if config_pressure_gradient_split_other_terms = true
+     ! or config_disable_vel_surface_stress = false
+     config_use_time_varying_atmospheric_forcing = .true.
+
+     ! Coriolis and kinetic energy grad tendency term
+     config_disable_vel_coriolis = .false.
+   
+     ! this computes the surface stress needs to be true if
+     ! config_disable_vel_surface_stress = false
+     config_use_bulk_wind_stress = .true.
+     ! surface stress tendency term
+     config_disable_vel_surface_stress = .false.
+
+     ! forcing drag terms
+     config_disable_vel_topographic_wave_drag = .false.
+     config_disable_vel_explicit_bottom_drag = .false.
 
      end subroutine setConfigsForSlowTends
 
@@ -3211,15 +3246,29 @@ module ocn_time_integration_lts3
      call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
      call mpas_pool_get_config(domain % configs, 'config_use_bulk_wind_stress', config_use_bulk_wind_stress)
 
-     config_pressure_gradient_split_ssh = .true.
-     config_pressure_gradient_split_other_terms = .false.
+     ! pressure gradient tendency terms
+     config_pressure_gradient_split_ssh = .true. !this has the ssh terms (also SAL)
+     config_pressure_gradient_split_other_terms = .false. !this has atmos pressure and tidal potential
+     ! this below has to be true if config_pressure_gradient_split_other_terms = true
+     config_use_tidal_potential_forcing = .false. !computes the tidal potential
+
+     ! time varying forcing term computes wind speed and atmos pressure
+     ! so it has to be true if config_pressure_gradient_split_other_terms = true
+     ! or config_disable_vel_surface_stress = false
      config_use_time_varying_atmospheric_forcing = .false.
+
+     ! Coriolis and kinetic energy grad tendency term
      config_disable_vel_coriolis = .true.
+
+     ! this computes the surface stress needs to be true if
+     ! config_disable_vel_surface_stress = false
+     config_use_bulk_wind_stress = .false.
+     ! surface stress tendency term
      config_disable_vel_surface_stress = .true.
+
+     ! forcing drag terms
      config_disable_vel_topographic_wave_drag = .true.
      config_disable_vel_explicit_bottom_drag = .true.
-     config_use_tidal_potential_forcing = .false.
-     config_use_bulk_wind_stress = .false.
 
      end subroutine setConfigsForFastTends
 
@@ -3241,6 +3290,7 @@ module ocn_time_integration_lts3
      logical, pointer :: config_use_tidal_potential_forcing
      logical, pointer :: config_use_bulk_wind_stress
 
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
      call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
      call mpas_pool_get_config(domain % configs, 'config_use_time_varying_atmospheric_forcing', config_use_time_varying_atmospheric_forcing)
      call mpas_pool_get_config(domain % configs, 'config_disable_vel_coriolis', config_disable_vel_coriolis)
@@ -3250,6 +3300,7 @@ module ocn_time_integration_lts3
      call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
      call mpas_pool_get_config(domain % configs, 'config_use_bulk_wind_stress', config_use_bulk_wind_stress)
 
+     config_pressure_gradient_split_ssh = .true.
      config_pressure_gradient_split_other_terms = .true.
      config_use_time_varying_atmospheric_forcing = .true.
      config_disable_vel_coriolis = .false.
