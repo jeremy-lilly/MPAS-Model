@@ -1992,8 +1992,8 @@ module ocn_time_integration_lts3
 
                if (config_LTS_split) then
 
-                  normalVelocityTend(:,:) = normalVelocityTend(:,:) + normalVelocityTendSlow(:,:)
                   normalVelocityTendSumFast(:,:) = normalVelocityTendSumFast(:,:) + normalVelocityTend(:,:) / REAL(M)
+                  normalVelocityTend(:,:) = normalVelocityTend(:,:) + normalVelocityTendSlow(:,:)
 
                end if
     
@@ -2283,11 +2283,11 @@ module ocn_time_integration_lts3
                ! --- normal velocity
                do ie = 1, nEdgesInLTSHalo(1,1)
                   iEdge = edgesInLTSHalo(1,1,ie)
-                  normalVelocityNew(:,iEdge) = normalVelocityCurCopy(:,iEdge) - dt * (normalVelocityTendSumFast(:,iEdge) - normalVelocityTendSlow(:,iEdge))
+                  normalVelocityNew(:,iEdge) = normalVelocityCurCopy(:,iEdge) + dt * (normalVelocityTendSumFast(:,iEdge) + normalVelocityTendSlow(:,iEdge))
                end do
                do ie = 1, nEdgesInLTSHalo(1,3)
                   iEdge = edgesInLTSHalo(1,3,ie)
-                  normalVelocityNew(:,iEdge) = normalVelocityCurCopy(:,iEdge) - dt * (normalVelocityTendSumFast(:,iEdge) - normalVelocityTendSlow(:,iEdge))
+                  normalVelocityNew(:,iEdge) = normalVelocityCurCopy(:,iEdge) + dt * (normalVelocityTendSumFast(:,iEdge) + normalVelocityTendSlow(:,iEdge))
                end do
 
             end if
