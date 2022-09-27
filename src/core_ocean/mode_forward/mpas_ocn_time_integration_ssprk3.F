@@ -62,6 +62,7 @@ module ocn_time_integration_ssprk3
 
    public :: ocn_time_integrator_ssprk3, ocn_time_integrator_compute_vel_tends
    public :: ocn_time_integrator_compute_thick_tends, ocn_time_integrator_compute_tracer_tends
+   public :: setConfigsForSlowTends, setConfigsForFastTends, resetConfigs 
 
    contains
 
@@ -94,6 +95,8 @@ module ocn_time_integration_ssprk3
     type (block_type), pointer :: block
 
     type (mpas_pool_type), pointer :: tendPool
+    type (mpas_pool_type), pointer :: tendSlowPool
+    type (mpas_pool_type), pointer :: prevTendSlowPool, nextTendSlowPool
     type (mpas_pool_type), pointer :: tracersTendPool
     type (mpas_pool_type), pointer :: statePool
     type (mpas_pool_type), pointer :: tracersPool
@@ -112,6 +115,7 @@ module ocn_time_integration_ssprk3
     integer, pointer :: nCells, nEdges, nVertLevels, num_tracers
 
     ! Config options
+    logical, pointer :: config_LTS_split
     logical, pointer :: config_prescribe_velocity, config_prescribe_thickness
     logical, pointer :: config_filter_btr_mode, config_use_freq_filtered_thickness
     logical, pointer :: config_use_GM
@@ -140,7 +144,7 @@ module ocn_time_integration_ssprk3
     real (kind=RKIND), dimension(:), pointer :: bottomDepth
 
     ! Tend Array Pointers
-    real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTend, lowFreqDivergenceTend, normalVelocityTend, layerThicknessTend
+    real (kind=RKIND), dimension(:,:), pointer :: highFreqThicknessTend, lowFreqDivergenceTend, normalVelocityTend, layerThicknessTend, normalVelocityTendSlow
     real (kind=RKIND), dimension(:,:,:), pointer :: tracersGroupTend
 
     ! Diagnostics Array Pointers
@@ -181,6 +185,7 @@ module ocn_time_integration_ssprk3
     real (kind=RKIND), pointer :: forcingTimeIncrement
 
     ! Get config options
+    call mpas_pool_get_config(domain % configs, 'config_LTS_split', config_LTS_split)
     call mpas_pool_get_config(domain % configs, 'config_mom_del4', config_mom_del4)
     call mpas_pool_get_config(domain % configs, 'config_filter_btr_mode', config_filter_btr_mode)
     call mpas_pool_get_config(domain % configs, 'config_prescribe_velocity', config_prescribe_velocity)
@@ -307,11 +312,100 @@ module ocn_time_integration_ssprk3
 
     err = 0 ! for MPI_Barrier tests
 
+    block => domain % blocklist
+    do while (associated(block))
+       call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
+
+       call mpas_pool_create_pool(tendSlowPool)
+       call mpas_pool_clone_pool(tendPool, tendSlowPool, 1)
+       call mpas_pool_add_subpool(block % structs, 'tend_slow', tendSlowPool)
+
+       block => block % next
+    end do
+
+    block => domain % blocklist
+    do while(associated(block))
+       if (associated(block % prev)) then
+          call mpas_pool_get_subpool(block % prev % structs, 'tend_slow', tendSlowPool)
+       else
+          nullify(prevTendSlowPool)
+       end if
+
+       if (associated(block % next)) then
+            call mpas_pool_get_subpool(block % next % structs, 'tend_slow', nextTendSlowPool)
+       else
+          nullify(nextTendSlowPool)
+       end if
+
+     call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
+
+       if (associated(prevTendSlowPool) .and. associated(nextTendSlowPool)) then
+          call mpas_pool_link_pools(tendSlowPool, prevTendSlowPool, nextTendSlowPool)
+       else if (associated(prevTendSlowPool)) then
+          call mpas_pool_link_pools(tendSlowPool, prevTendSlowPool)
+       else if (associated(nextTendSlowPool)) then
+          call mpas_pool_link_pools(tendSlowPool,nextPool=nextTendSlowPool)
+       else
+          call mpas_pool_link_pools(tendSlowPool)
+       end if
+
+       call mpas_pool_link_parinfo(block, tendSlowPool)
+
+       block => block % next
+    end do
+
     call mpas_timer_start("SSPRK3-main loop")
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! BEGIN SSPRK loop
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    if (config_LTS_split) then
+
+       ! set configs to compute only the slow terms on the momentum equation
+       call setConfigsForSlowTends(domain)
+
+      block => domain % blocklist
+      do while (associated(block))
+           call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
+           call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+           forcingTimeIncrement = forcingTimeIncrementSSPRK3(1)
+           block => block % next
+      end do
+
+      ! Compute tendencies for velocity, thickness, and tracers.
+      call mpas_timer_start("SSPRK3 vel/thick/tracers tendency computations")
+      !print*, "ssprk_step---------->", ssprk_step
+      call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+      block => domain % blocklist
+      do while (associated(block))
+           call mpas_pool_get_subpool(block % structs, 'state', statePool)
+           call ocn_time_integrator_compute_vel_tends(block, dt, err, statePool, 1)
+         block => block % next
+      end do
+      call mpas_timer_stop("SSPRK3 vel/thick/tracers tendency computations")
+
+
+      ! Update halos for prognostic variables.
+      call mpas_timer_start("SSPRK3 vel/thick/tracers prognostic halo update")
+
+      call mpas_dmpar_field_halo_exch(domain, 'tendNormalVelocity')
+      call mpas_pool_get_subpool(domain % blocklist % structs, 'tend_slow',tendSlowPool)
+      call mpas_pool_get_subpool(domain % blocklist % structs, 'tend',tendPool)
+
+      call mpas_pool_get_array(tendPool, 'normalVelocity', normalVelocityTend)
+      call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow)
+
+      normalVelocityTendSlow(:,:) = normalVelocityTend(:,:)
+
+      call mpas_timer_stop("SSPRK3 vel/thick/tracers prognostic halo update")
+      call mpas_threading_barrier()
+
+      ! set configs to compute only the fast terms on the momentum equation
+      call setConfigsForFastTends(domain)
+
+    end if
+
     do ssprk_step = 1, 3
 
       if (config_disable_thick_all_tend .and. config_disable_vel_all_tend .and. config_disable_tr_all_tend) then
@@ -440,6 +534,7 @@ module ocn_time_integration_ssprk3
 
          call mpas_pool_get_subpool(block % structs, 'state', statePool)
          call mpas_pool_get_subpool(block % structs, 'tend', tendPool)
+         call mpas_pool_get_subpool(block % structs, 'tend_slow',tendSlowPool)
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
          call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
 
@@ -457,6 +552,7 @@ module ocn_time_integration_ssprk3
          call mpas_pool_get_array(statePool, 'lowFreqDivergence', lowFreqDivergenceNew, 2)
 
          call mpas_pool_get_array(tendPool, 'normalVelocity', normalVelocityTend) 
+         call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow) 
          call mpas_pool_get_array(tendPool, 'layerThickness', layerThicknessTend)
 
          call mpas_pool_get_array(tendPool, 'highFreqThickness', highFreqThicknessTend)
@@ -464,6 +560,12 @@ module ocn_time_integration_ssprk3
          call mpas_pool_get_array(diagnosticsPool, 'wettingVelocity', wettingVelocity)
 
          call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
+
+         if (config_LTS_split) then
+
+            normalVelocityTend(:,iEdge) = normalVelocityTend(:,iEdge) + normalVelocityTendSlow(:,iEdge)
+
+         end if
 
          !$omp do schedule(runtime)
          do iEdge = 1, nEdges
@@ -617,6 +719,13 @@ module ocn_time_integration_ssprk3
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! END SSPRK loop
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      ! reset configs for third stage of coarse if split is on
+      if (config_LTS_split) then
+
+         call resetConfigs(domain)
+
+      end if
 
       ! verify that cells are not dry at conclusion of time step
       if (config_use_wetting_drying) then
@@ -829,6 +938,17 @@ module ocn_time_integration_ssprk3
          call mpas_dmpar_exch_halo_field(effectiveDensityField)
          call mpas_timer_stop("SSPRK3-effective density halo")
       end if
+
+      block => domain % blocklist
+      do while(associated(block))
+         call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
+
+         call mpas_pool_destroy_pool(tendSlowPool)
+
+         call mpas_pool_remove_subpool(block % structs, 'tend_slow')
+
+         block => block % next
+      end do
 
       call mpas_timer_stop("SSPRK3-cleanup phase")
 
@@ -1054,5 +1174,153 @@ module ocn_time_integration_ssprk3
 
    end subroutine ocn_time_integrator_compute_tracer_tends
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     subroutine setConfigsForSlowTends(domain)
+
+     implicit none
+
+     type (domain_type), intent(inout) :: domain
+
+     logical, pointer :: config_pressure_gradient_split_ssh
+     logical, pointer :: config_pressure_gradient_split_other_terms
+     logical, pointer :: config_use_time_varying_atmospheric_forcing
+     logical, pointer :: config_disable_vel_coriolis
+     logical, pointer :: config_disable_vel_surface_stress
+     logical, pointer :: config_disable_vel_topographic_wave_drag
+     logical, pointer :: config_disable_vel_explicit_bottom_drag
+     logical, pointer :: config_use_tidal_potential_forcing
+     logical, pointer :: config_use_bulk_wind_stress
+
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
+     call mpas_pool_get_config(domain % configs, 'config_use_time_varying_atmospheric_forcing', config_use_time_varying_atmospheric_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_coriolis', config_disable_vel_coriolis)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_surface_stress', config_disable_vel_surface_stress)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_topographic_wave_drag', config_disable_vel_topographic_wave_drag)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_explicit_bottom_drag', config_disable_vel_explicit_bottom_drag)
+     call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_use_bulk_wind_stress', config_use_bulk_wind_stress)
+
+     ! pressure gradient tendency terms
+     config_pressure_gradient_split_ssh = .false. !this has the ssh terms (also SAL)
+     config_pressure_gradient_split_other_terms = .true. !this has atmos pressure and tidal potential
+     ! this below has to be true if config_pressure_gradient_split_other_terms = true
+     config_use_tidal_potential_forcing = .true. !computes the tidal potential 
+     ! time varying forcing term computes wind speed and atmos pressure
+     ! so it has to be true if config_pressure_gradient_split_other_terms = true
+     ! or config_disable_vel_surface_stress = false
+     config_use_time_varying_atmospheric_forcing = .true.
+
+     ! Coriolis and kinetic energy grad tendency term
+     config_disable_vel_coriolis = .false.
+
+     ! this computes the surface stress needs to be true if
+     ! config_disable_vel_surface_stress = false
+     config_use_bulk_wind_stress = .true.
+     ! surface stress tendency term
+     config_disable_vel_surface_stress = .false.
+
+     ! forcing drag terms
+     config_disable_vel_topographic_wave_drag = .false.
+     config_disable_vel_explicit_bottom_drag = .false.
+
+     end subroutine setConfigsForSlowTends
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     subroutine setConfigsForFastTends(domain)
+
+     implicit none
+
+     type (domain_type), intent(inout) :: domain
+
+     logical, pointer :: config_pressure_gradient_split_ssh
+     logical, pointer :: config_pressure_gradient_split_other_terms
+     logical, pointer :: config_use_time_varying_atmospheric_forcing
+     logical, pointer :: config_disable_vel_coriolis
+     logical, pointer :: config_disable_vel_surface_stress
+     logical, pointer :: config_disable_vel_topographic_wave_drag
+     logical, pointer :: config_disable_vel_explicit_bottom_drag
+     logical, pointer :: config_use_tidal_potential_forcing
+     logical, pointer :: config_use_bulk_wind_stress
+
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
+     call mpas_pool_get_config(domain % configs, 'config_use_time_varying_atmospheric_forcing', config_use_time_varying_atmospheric_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_coriolis', config_disable_vel_coriolis)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_surface_stress', config_disable_vel_surface_stress)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_topographic_wave_drag', config_disable_vel_topographic_wave_drag)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_explicit_bottom_drag', config_disable_vel_explicit_bottom_drag)
+     call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_use_bulk_wind_stress', config_use_bulk_wind_stress)
+
+     ! pressure gradient tendency terms
+     config_pressure_gradient_split_ssh = .true. !this has the ssh terms (also SAL)
+     config_pressure_gradient_split_other_terms = .false. !this has atmos pressure and tidal potential
+     ! this below has to be true if config_pressure_gradient_split_other_terms = true
+     config_use_tidal_potential_forcing = .false. !computes the tidal potential
+
+     ! time varying forcing term computes wind speed and atmos pressure
+     ! so it has to be true if config_pressure_gradient_split_other_terms = true
+     ! or config_disable_vel_surface_stress = false
+     config_use_time_varying_atmospheric_forcing = .false.
+
+     ! Coriolis and kinetic energy grad tendency term
+     config_disable_vel_coriolis = .true.
+
+     ! this computes the surface stress needs to be true if
+     ! config_disable_vel_surface_stress = false
+     config_use_bulk_wind_stress = .false.
+     ! surface stress tendency term
+     config_disable_vel_surface_stress = .true.
+
+     ! forcing drag terms
+     config_disable_vel_topographic_wave_drag = .true.
+     config_disable_vel_explicit_bottom_drag = .true.
+
+     end subroutine setConfigsForFastTends
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     subroutine resetConfigs(domain)
+
+     implicit none
+
+     type (domain_type), intent(inout) :: domain
+
+     logical, pointer :: config_pressure_gradient_split_ssh
+     logical, pointer :: config_pressure_gradient_split_other_terms
+     logical, pointer :: config_use_time_varying_atmospheric_forcing
+     logical, pointer :: config_disable_vel_coriolis
+     logical, pointer :: config_disable_vel_surface_stress
+     logical, pointer :: config_disable_vel_topographic_wave_drag
+     logical, pointer :: config_disable_vel_explicit_bottom_drag
+     logical, pointer :: config_use_tidal_potential_forcing
+     logical, pointer :: config_use_bulk_wind_stress
+
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_ssh', config_pressure_gradient_split_ssh)
+     call mpas_pool_get_config(domain % configs, 'config_pressure_gradient_split_other_terms', config_pressure_gradient_split_other_terms)
+     call mpas_pool_get_config(domain % configs, 'config_use_time_varying_atmospheric_forcing', config_use_time_varying_atmospheric_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_coriolis', config_disable_vel_coriolis)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_surface_stress', config_disable_vel_surface_stress)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_topographic_wave_drag', config_disable_vel_topographic_wave_drag)
+     call mpas_pool_get_config(domain % configs, 'config_disable_vel_explicit_bottom_drag', config_disable_vel_explicit_bottom_drag)
+     call mpas_pool_get_config(domain % configs, 'config_use_tidal_potential_forcing', config_use_tidal_potential_forcing)
+     call mpas_pool_get_config(domain % configs, 'config_use_bulk_wind_stress', config_use_bulk_wind_stress)
+
+     config_pressure_gradient_split_ssh = .true.
+     config_pressure_gradient_split_other_terms = .true.
+     config_use_time_varying_atmospheric_forcing = .true.
+     config_disable_vel_coriolis = .false.
+     config_disable_vel_surface_stress = .false.
+     config_disable_vel_topographic_wave_drag = .false.
+     config_disable_vel_explicit_bottom_drag = .false.
+     config_use_tidal_potential_forcing = .true.
+     config_use_bulk_wind_stress = .true.
+
+     end subroutine resetConfigs
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 end module ocn_time_integration_ssprk3
