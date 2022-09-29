@@ -379,8 +379,16 @@ module ocn_time_integration_ssprk3
       call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
       block => domain % blocklist
       do while (associated(block))
-           call mpas_pool_get_subpool(block % structs, 'state', statePool)
-           call ocn_time_integrator_compute_vel_tends(block, dt, err, statePool, 1)
+            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+            call mpas_pool_get_subpool(block % structs, 'state', statePool)
+            call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+            call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
+            call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
+            call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+            call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
+
+            ! TENDENCIES COMPUTATION --- (this is only for the momentum equation)
+            call ocn_tend_vel(tendSlowPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dt)
          block => block % next
       end do
       call mpas_timer_stop("SSPRK3 vel/thick/tracers tendency computations")
@@ -390,13 +398,6 @@ module ocn_time_integration_ssprk3
       call mpas_timer_start("SSPRK3 vel/thick/tracers prognostic halo update")
 
       call mpas_dmpar_field_halo_exch(domain, 'tendNormalVelocity')
-      call mpas_pool_get_subpool(domain % blocklist % structs, 'tend_slow',tendSlowPool)
-      call mpas_pool_get_subpool(domain % blocklist % structs, 'tend',tendPool)
-
-      call mpas_pool_get_array(tendPool, 'normalVelocity', normalVelocityTend)
-      call mpas_pool_get_array(tendSlowPool, 'normalVelocity', normalVelocityTendSlow)
-
-      normalVelocityTendSlow(:,:) = normalVelocityTend(:,:)
 
       call mpas_timer_stop("SSPRK3 vel/thick/tracers prognostic halo update")
       call mpas_threading_barrier()
@@ -563,7 +564,7 @@ module ocn_time_integration_ssprk3
 
          if (config_LTS_split) then
 
-            normalVelocityTend(:,iEdge) = normalVelocityTend(:,iEdge) + normalVelocityTendSlow(:,iEdge)
+            normalVelocityTend(:,:) = normalVelocityTend(:,:) + normalVelocityTendSlow(:,:)
 
          end if
 
@@ -575,6 +576,10 @@ module ocn_time_integration_ssprk3
             normalVelocityNew(:, iEdge) = normalVelocityNew(:, iEdge) * (1.0_RKIND - wettingVelocity(:, iEdge))
          end do
          !$omp end do
+
+         if (config_LTS_split) then
+            call mpas_dmpar_field_halo_exch(domain, 'normalVelocity')
+         end if
 
          call mpas_pool_begin_iteration(tracersPool)
          do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
@@ -597,7 +602,6 @@ module ocn_time_integration_ssprk3
                end if
             end if
          end do
-
 
          !$omp do schedule(runtime)
          do iCell = 1, nCells
@@ -720,7 +724,7 @@ module ocn_time_integration_ssprk3
    ! END SSPRK loop
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-      ! reset configs for third stage of coarse if split is on
+      ! reset configs 
       if (config_LTS_split) then
 
          call resetConfigs(domain)

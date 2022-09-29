@@ -318,6 +318,7 @@ contains
       call mpas_timer_start("ocn_tend_vel")
 
       ! Build bulk forcing surface stress
+      call ocn_surface_bulk_forcing_init(err)
       call ocn_surface_bulk_forcing_vel(meshPool, forcingPool, surfaceStress, surfaceStressMagnitude, err)
 
       ! Add top drag to surface stress
@@ -326,6 +327,7 @@ contains
       !
       ! velocity tendency: nonlinear Coriolis term and grad of kinetic energy
       !
+      call ocn_vel_hadv_coriolis_init(err)
       call ocn_vel_hadv_coriolis_tend(meshPool, normalizedRelativeVorticityEdge, normalizedPlanetaryVorticityEdge, layerThicknessEdge, &
          normalVelocity, kineticEnergyCell, tend_normalVelocity, err)
 
@@ -373,6 +375,7 @@ contains
               indexTemperature, indexSalinity, activeTracers, tend_normalVelocity, err, &
               inSituThermalExpansionCoeff,inSituSalineContractionCoeff)
       else
+         call ocn_vel_pressure_grad_init(err)
          call ocn_vel_pressure_grad_tend(meshPool, forcingPool, ssh, pressure, montgomeryPotential, zMid, density, potentialDensity, &
               indexTemperature, indexSalinity, activeTracers, tend_normalVelocity, err, &
               inSituThermalExpansionCoeff,inSituSalineContractionCoeff)
@@ -395,6 +398,7 @@ contains
       !
       ! velocity tendency: forcing and bottom drag
       !
+      call ocn_vel_forcing_init(err)
       call ocn_vel_forcing_tend(meshPool, diagnosticsPool, normalVelocity, surfaceFluxAttenuationCoefficient, &
               surfaceStress, kineticEnergyCell, layerThicknessEdge, &
                                 tend_normalVelocity, err)

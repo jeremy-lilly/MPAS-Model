@@ -455,24 +455,6 @@ module ocn_time_integration_lts3
          ! set configs to compute only the slow terms on the momentum equation
          call setConfigsForSlowTends(domain)
 
-         ! --- compute diagnostics 
-         call mpas_timer_start("LTS3-update diagnostic variables")
-         block => domain % blocklist
-         do while (associated(block))
-
-            call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
-            call mpas_pool_get_subpool(block % structs, 'state', statePool)
-            call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
-            call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
-            call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
-            call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
-
-            call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
-
-            block => block % next
-         end do
-         call mpas_timer_stop("LTS3-update diagnostic variables")
-
          call mpas_timer_start("LTS3-slow tend computation")
 
          block => domain % blocklist
@@ -480,17 +462,15 @@ module ocn_time_integration_lts3
 
             call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
             call mpas_pool_get_subpool(block % structs, 'state', statePool)
-            call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
             call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
             call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
             call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
-            call mpas_pool_get_subpool(block % structs, 'verticalMesh', verticalMeshPool)
             call mpas_pool_get_subpool(block % structs, 'tend_slow', tendSlowPool)
-            call mpas_pool_get_subpool(block % structs, 'shortwave', swForcingPool)
             call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
             forcingTimeIncrement = 0.0_RKIND
 
             ! TENDENCIES COMPUTATION --- (this is only for the momentum equation)
+            call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
             call ocn_tend_vel(tendSlowPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dt)
 
             block => block % next
@@ -2787,7 +2767,7 @@ module ocn_time_integration_lts3
       !  A little clean up at the end
       !
 
-      ! reset confis for third stage of coarse if split is on
+      ! reset configs
       if (config_LTS_split) then
 
          call resetConfigs(domain)
@@ -3190,6 +3170,10 @@ module ocn_time_integration_lts3
     ! END: CHECK TO SEE IF THE INTERFACE BLOCKS HAVE ENOUGH CELLS
 
     end subroutine ocn_time_integration_lts3_init
+
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
    real function sphere_distance(lat1, lon1, lat2, lon2, radius)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
