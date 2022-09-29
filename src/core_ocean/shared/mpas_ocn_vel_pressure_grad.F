@@ -14,7 +14,7 @@
 !> \date   September 2011
 !> \details
 !>  This module contains the routine for computing
-!>  tendencie from the horizontal pressure gradient.
+!>  tendencies from the horizontal pressure gradient.
 !>
 !
 !-----------------------------------------------------------------------
@@ -704,7 +704,9 @@ contains
       if (.not. config_pressure_gradient_split_ssh) sshTermSplit = 0.0_RKIND
       if (.not. config_pressure_gradient_split_other_terms) otherTermsSplit = 0.0_RKIND
 
+#ifdef MPAS_DEBUG
       call mpas_log_write(' Pressure type is: '//trim(config_pressure_gradient_type))
+#endif
 
       betaSelfAttrLoad = config_self_attraction_and_loading_beta
 
