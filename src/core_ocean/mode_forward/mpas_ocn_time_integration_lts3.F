@@ -1172,7 +1172,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
+               if (config_LTS_split .and. config_LTS_inline_fast_tends) then
+                  call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
+               end if
 
             end if
 
@@ -1538,7 +1540,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 3)
+               if (config_LTS_split .and. config_LTS_inline_fast_tends) then
+                  call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 3)
+               end if
 
             end if
 
@@ -1917,7 +1921,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 4)
+               if (config_LTS_split .and. config_LTS_inline_fast_tends) then
+                  call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 4)
+               end if
 
             end if
 
@@ -3253,14 +3259,14 @@ module ocn_time_integration_lts3
 
    ! if we call this routine we can actually remove the call to the diagnositcs
    ! which will make it pretty faster
-   !do iEdge = 1, nEdges
-   !   layerThicknessEdge(:, iEdge) = -1.0e34_RKIND
-   !   cell1 = cellsOnEdge(1,iEdge)
-   !   cell2 = cellsOnEdge(2,iEdge)
-   !   do k = 1, maxLevelEdgeTop(iEdge)
-   !      layerThicknessEdge(k,iEdge) = 0.5_RKIND * (layerThickness(k,cell1) + layerThickness(k,cell2))
-   !   end do
-   !end do
+   do iEdge = 1, nEdges
+      layerThicknessEdge(:, iEdge) = -1.0e34_RKIND
+      cell1 = cellsOnEdge(1,iEdge)
+      cell2 = cellsOnEdge(2,iEdge)
+      do k = 1, maxLevelEdgeTop(iEdge)
+         layerThicknessEdge(k,iEdge) = 0.5_RKIND * (layerThickness(k,cell1) + layerThickness(k,cell2))
+      end do
+   end do
 
    ! velocity tends
 
