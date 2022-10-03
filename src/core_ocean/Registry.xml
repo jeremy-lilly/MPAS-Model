@@ -201,6 +201,9 @@
                 <nml_option name="config_LTS_split"                          type="logical"       default_value="false"
                                         description="If true, the slow tendencies are not updated with the new solution during the fine sub-stepping."
                 />
+                <nml_option name="config_LTS_inline_fast_tends"                          type="logical"       default_value="false"
+                                        description="If true, the fast tends are computed inline exactly on fine and interface only"
+                />
 	</nml_record>
 	<nml_record name="ALE_vertical_grid" mode="forward">
 		<nml_option name="config_vert_coord_movement" type="character" default_value="uniform_stretching" units="unitless"

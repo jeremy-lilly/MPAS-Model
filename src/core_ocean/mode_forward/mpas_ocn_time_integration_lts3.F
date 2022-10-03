@@ -59,7 +59,7 @@ module ocn_time_integration_lts3
    !
    !--------------------------------------------------------------------
 
-   public :: ocn_time_integrator_lts3, ocn_time_integration_lts3_init
+   public :: ocn_time_integrator_lts3, ocn_time_integration_lts3_init, ocn_lts_fast_tends
 
    contains
 
@@ -132,6 +132,7 @@ module ocn_time_integration_lts3
     logical, pointer :: config_disable_vel_all_tend
     logical, pointer :: config_disable_tr_all_tend
     logical, pointer :: config_LTS_split
+    logical, pointer :: config_LTS_inline_fast_tends
     real (kind=RKIND), pointer :: config_mom_del4
     real (kind=RKIND), pointer :: config_drying_min_cell_height
     logical, pointer :: config_use_wetting_drying
@@ -207,6 +208,7 @@ module ocn_time_integration_lts3
     ! Get config options
     call mpas_pool_get_config(domain % configs, 'config_dt_scaling_LTS', config_dt_scaling_LTS)
     call mpas_pool_get_config(domain % configs, 'config_LTS_split', config_LTS_split)
+    call mpas_pool_get_config(domain % configs, 'config_LTS_inline_fast_tends', config_LTS_inline_fast_tends)
     call mpas_pool_get_config(domain % configs, 'config_mom_del4', config_mom_del4)
     call mpas_pool_get_config(domain % configs, 'config_filter_btr_mode', config_filter_btr_mode)
     call mpas_pool_get_config(domain % configs, 'config_prescribe_velocity', config_prescribe_velocity)
@@ -1214,8 +1216,12 @@ module ocn_time_integration_lts3
 
                ! TENDENCIES COMPUTATION ---
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
-               call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dtFine)
-               call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
+               if (.not. config_LTS_inline_fast_tends) then
+                  call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dtFine)
+                  call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
+               else
+                  call ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, 1)
+               end if
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 1)
 
             end if
@@ -1576,8 +1582,12 @@ module ocn_time_integration_lts3
  
                ! TENDENCIES COMPUTATION ---
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
-               call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dtFine)
-               call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
+               if (.not. config_LTS_inline_fast_tends) then
+                  call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dtFine)
+                  call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
+               else
+                  call ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, 3)
+               end if
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 3)
 
             end if
@@ -1951,8 +1961,12 @@ module ocn_time_integration_lts3
  
                ! TENDENCIES COMPUTATION ---
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
-               call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dtFine)
-               call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
+               if (.not. config_LTS_inline_fast_tends) then
+                  call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dtFine)
+                  call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
+               else
+                  call ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, 4)
+               end if
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 4)
 
             end if
@@ -3174,6 +3188,161 @@ module ocn_time_integration_lts3
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+
+   subroutine ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, timeLevelIn)
+
+   integer, intent(in) :: timeLevelIn
+
+   type (mpas_pool_type), intent(in) :: &
+      statePool          !< Input: state variables
+
+   type (mpas_pool_type), intent(in) :: &
+      diagnosticsPool          !< Input: diagnostics variables
+
+   type (mpas_pool_type), intent(in) :: &
+      LTSPool          !< Input: LTS data
+
+   type (mpas_pool_type), intent(in) :: &
+      meshPool          !< Input: mesh information
+
+   type (mpas_pool_type), intent(inout) :: &
+      tendPool          !< Input: tendency variables
+
+   integer, pointer :: nEdges
+   integer, dimension(:,:), pointer :: cellsOnEdge, edgeMask, edgesOnCell, edgeSignOnCell
+   real (kind=RKIND), dimension(:), pointer :: dcEdge, ssh, dvEdge, areaCell
+   real (kind=RKIND), pointer :: config_self_attraction_and_loading_beta
+   integer, dimension(:,:), pointer :: nCellsInLTSHalo, nEdgesInLTSHalo
+   integer, dimension(:,:,:), pointer :: cellsInLTSHalo, edgesInLTSHalo
+   real (kind=RKIND), dimension(:,:), pointer :: normalVelocityTend, layerThicknessTend, layerThicknessEdge, normalVelocity, layerThickness
+   integer, dimension(:), pointer :: maxLevelEdgeBot, maxLevelEdgeTop, nEdgesOnCell
+
+   integer :: iEdge, cell1, cell2, k, ie, iRegion, nRegions, ic, iCell, i
+   real (kind=RKIND) :: invdcEdge, betaSelfAttrLoad, flux, invAreaCell
+
+   call mpas_pool_get_config(ocnConfigs, 'config_self_attraction_and_loading_beta', config_self_attraction_and_loading_beta) 
+
+   betaSelfAttrLoad = config_self_attraction_and_loading_beta
+   nRegions = 2
+
+   call mpas_pool_get_dimension(meshPool, 'nEdges', nEdges)
+   call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
+   call mpas_pool_get_array(meshPool, 'cellsOnEdge', cellsOnEdge)
+   call mpas_pool_get_array(meshPool, 'dcEdge', dcEdge)
+   call mpas_pool_get_array(meshPool, 'dvEdge', dvEdge)
+   call mpas_pool_get_array(meshPool, 'edgeMask', edgeMask)
+   call mpas_pool_get_array(meshPool, 'maxLevelEdgeBot', maxLevelEdgeBot)
+   call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
+   call mpas_pool_get_array(meshPool, 'nEdgesOnCell', nEdgesOnCell)
+   call mpas_pool_get_array(meshPool, 'edgesOnCell', edgesOnCell)
+   call mpas_pool_get_array(meshPool, 'edgeSignOnCell', edgeSignOnCell)
+
+   call mpas_pool_get_array(LTSPool, 'cellsInLTSHalo',cellsInLTSHalo)
+   call mpas_pool_get_array(LTSPool, 'nCellsInLTSHalo',nCellsInLTSHalo)
+   call mpas_pool_get_array(LTSPool, 'edgesInLTSHalo', edgesInLTSHalo)
+   call mpas_pool_get_array(LTSPool, 'nEdgesInLTSHalo',nEdgesInLTSHalo)
+
+   call mpas_pool_get_array(tendPool, 'normalVelocity', normalVelocityTend)
+   call mpas_pool_get_array(tendPool, 'layerThickness', layerThicknessTend)
+
+   call mpas_pool_get_array(diagnosticsPool, 'layerThicknessEdge', layerThicknessEdge)
+
+   call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevelIn)
+   call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, timeLevelIn)
+   call mpas_pool_get_array(statePool, 'ssh', ssh, timeLevelIn)
+
+   ! if we call this routine we can actually remove the call to the diagnositcs
+   ! which will make it pretty faster
+   do iEdge = 1, nEdges
+      layerThicknessEdge(:, iEdge) = -1.0e34_RKIND
+      cell1 = cellsOnEdge(1,iEdge)
+      cell2 = cellsOnEdge(2,iEdge)
+      do k = 1, maxLevelEdgeTop(iEdge)
+         layerThicknessEdge(k,iEdge) = 0.5_RKIND * (layerThickness(k,cell1) + layerThickness(k,cell2))
+      end do
+   end do
+
+   ! velocity tends
+
+   ! interface
+   do iRegion = 1, nRegions
+      do ie = 1, nEdgesInLTSHalo(iRegion,2)
+         iEdge = edgesInLTSHalo(iRegion,2,ie)
+         cell1 = cellsOnEdge(1,iEdge)
+         cell2 = cellsOnEdge(2,iEdge)
+         invdcEdge = 1.0_RKIND / dcEdge(iEdge)
+         do k=1,maxLevelEdgeTop(iEdge)
+            normalVelocityTend(k,iEdge) = - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
+         end do
+      end do
+   end do
+
+   ! fine
+   do ie = 1, nEdgesInLTSHalo(1,1)
+      iEdge = edgesInLTSHalo(1,1,ie)
+      cell1 = cellsOnEdge(1,iEdge)
+      cell2 = cellsOnEdge(2,iEdge)
+      invdcEdge = 1.0_RKIND / dcEdge(iEdge)
+      do k=1,maxLevelEdgeTop(iEdge)
+         normalVelocityTend(k,iEdge) = - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
+      end do
+   end do
+
+   do ie = 1, nEdgesInLTSHalo(1,3)
+      iEdge = edgesInLTSHalo(1,3,ie)
+      cell1 = cellsOnEdge(1,iEdge)
+      cell2 = cellsOnEdge(2,iEdge)
+      invdcEdge = 1.0_RKIND / dcEdge(iEdge)
+      do k=1,maxLevelEdgeTop(iEdge)
+         normalVelocityTend(k,iEdge) = - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
+      end do
+   end do
+
+   ! thickness tends
+
+   ! interface
+   do iRegion =1, nRegions
+      do ic = 1, nCellsInLTSHalo(iRegion,2)
+         iCell = cellsInLTSHalo(iRegion,2,ic)
+         invAreaCell = 1.0_RKIND / areaCell(iCell)
+         do i = 1, nEdgesOnCell(iCell)
+            iEdge = edgesOnCell(i, iCell)
+            do k = 1, maxLevelEdgeBot(iEdge)
+               flux = normalVelocity(k, iEdge) * dvEdge(iEdge) * layerThicknessEdge(k, iEdge)
+               layerThicknessTend(k, iCell) = edgeSignOnCell(i, iCell) * flux * invAreaCell
+            end do
+         end do
+      end do
+   end do
+
+   ! fine
+   do ic = 1, nCellsInLTSHalo(1,1)
+      iCell = cellsInLTSHalo(1,1,ic)
+      invAreaCell = 1.0_RKIND / areaCell(iCell)
+      do i = 1, nEdgesOnCell(iCell)
+         iEdge = edgesOnCell(i, iCell)
+         do k = 1, maxLevelEdgeBot(iEdge)
+            flux = normalVelocity(k, iEdge) * dvEdge(iEdge) * layerThicknessEdge(k, iEdge)
+            layerThicknessTend(k, iCell) = edgeSignOnCell(i, iCell) * flux * invAreaCell
+         end do
+      end do
+   end do
+
+   do ic = 1, nCellsInLTSHalo(1,3)
+      iCell = cellsInLTSHalo(1,3,ic)
+      invAreaCell = 1.0_RKIND / areaCell(iCell)
+      do i = 1, nEdgesOnCell(iCell)
+         iEdge = edgesOnCell(i, iCell)
+         do k = 1, maxLevelEdgeBot(iEdge)
+            flux = normalVelocity(k, iEdge) * dvEdge(iEdge) * layerThicknessEdge(k, iEdge)
+            layerThicknessTend(k, iCell) = edgeSignOnCell(i, iCell) * flux * invAreaCell
+         end do
+      end do
+   end do
+
+   end subroutine ocn_lts_fast_tends
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    real function sphere_distance(lat1, lon1, lat2, lon2, radius)
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
