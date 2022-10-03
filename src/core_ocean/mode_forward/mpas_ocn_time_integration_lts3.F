@@ -1216,10 +1216,10 @@ module ocn_time_integration_lts3
 
                ! TENDENCIES COMPUTATION ---
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
-               if (.not. config_LTS_inline_fast_tends) then
+               if ((.not. config_LTS_inline_fast_tends) .or. (.not. config_LTS_split)) then
                   call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 1, dtFine)
                   call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
-               else
+               else if (config_LTS_split .and. config_LTS_inline_fast_tends) then
                   call ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, 1)
                end if
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 1)
@@ -1582,10 +1582,10 @@ module ocn_time_integration_lts3
  
                ! TENDENCIES COMPUTATION ---
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
-               if (.not. config_LTS_inline_fast_tends) then
+               if ((.not. config_LTS_inline_fast_tends) .or. (.not. config_LTS_split)) then
                   call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 3, dtFine)
                   call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
-               else
+               else if (config_LTS_split .and. config_LTS_inline_fast_tends) then 
                   call ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, 3)
                end if
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 3)
@@ -1961,10 +1961,10 @@ module ocn_time_integration_lts3
  
                ! TENDENCIES COMPUTATION ---
                call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
-               if (.not. config_LTS_inline_fast_tends) then
+               if ((.not. config_LTS_inline_fast_tends) .or. (.not. config_LTS_split)) then
                   call ocn_tend_vel(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, scratchPool, 4, dtFine)
                   call ocn_tend_thick(tendPool, forcingPool, diagnosticsPool, meshPool)
-               else
+               else if (config_LTS_split .and. config_LTS_inline_fast_tends) then
                   call ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, 4)
                end if
                call ocn_tend_tracer(tendPool, statePool, forcingPool, diagnosticsPool, meshPool, swForcingPool, scratchPool, dtFine, activeTracersOnlyIn, 4)
@@ -3253,16 +3253,18 @@ module ocn_time_integration_lts3
 
    ! if we call this routine we can actually remove the call to the diagnositcs
    ! which will make it pretty faster
-   do iEdge = 1, nEdges
-      layerThicknessEdge(:, iEdge) = -1.0e34_RKIND
-      cell1 = cellsOnEdge(1,iEdge)
-      cell2 = cellsOnEdge(2,iEdge)
-      do k = 1, maxLevelEdgeTop(iEdge)
-         layerThicknessEdge(k,iEdge) = 0.5_RKIND * (layerThickness(k,cell1) + layerThickness(k,cell2))
-      end do
-   end do
+   !do iEdge = 1, nEdges
+   !   layerThicknessEdge(:, iEdge) = -1.0e34_RKIND
+   !   cell1 = cellsOnEdge(1,iEdge)
+   !   cell2 = cellsOnEdge(2,iEdge)
+   !   do k = 1, maxLevelEdgeTop(iEdge)
+   !      layerThicknessEdge(k,iEdge) = 0.5_RKIND * (layerThickness(k,cell1) + layerThickness(k,cell2))
+   !   end do
+   !end do
 
    ! velocity tends
+
+   normalVelocityTend(:,:) = 0.0_RKIND
 
    ! interface
    do iRegion = 1, nRegions
@@ -3272,7 +3274,8 @@ module ocn_time_integration_lts3
          cell2 = cellsOnEdge(2,iEdge)
          invdcEdge = 1.0_RKIND / dcEdge(iEdge)
          do k=1,maxLevelEdgeTop(iEdge)
-            normalVelocityTend(k,iEdge) = - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
+            normalVelocityTend(k,iEdge) = normalVelocityTend(k,iEdge) &
+                                          - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
          end do
       end do
    end do
@@ -3284,7 +3287,8 @@ module ocn_time_integration_lts3
       cell2 = cellsOnEdge(2,iEdge)
       invdcEdge = 1.0_RKIND / dcEdge(iEdge)
       do k=1,maxLevelEdgeTop(iEdge)
-         normalVelocityTend(k,iEdge) = - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
+         normalVelocityTend(k,iEdge) = normalVelocityTend(k,iEdge) & 
+                                       - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
       end do
    end do
 
@@ -3294,11 +3298,14 @@ module ocn_time_integration_lts3
       cell2 = cellsOnEdge(2,iEdge)
       invdcEdge = 1.0_RKIND / dcEdge(iEdge)
       do k=1,maxLevelEdgeTop(iEdge)
-         normalVelocityTend(k,iEdge) = - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
+         normalVelocityTend(k,iEdge) = normalVelocityTend(k,iEdge) & 
+                                       - edgeMask(k,iEdge) * invdcEdge * ( gravity * ( (ssh(cell2) - ssh(cell1))  - betaSelfAttrLoad * (ssh(cell2) - ssh(cell1)) ) )
       end do
    end do
 
    ! thickness tends
+
+   layerThicknessTend(:, :) = 0.0_RKIND
 
    ! interface
    do iRegion =1, nRegions
@@ -3309,7 +3316,7 @@ module ocn_time_integration_lts3
             iEdge = edgesOnCell(i, iCell)
             do k = 1, maxLevelEdgeBot(iEdge)
                flux = normalVelocity(k, iEdge) * dvEdge(iEdge) * layerThicknessEdge(k, iEdge)
-               layerThicknessTend(k, iCell) = edgeSignOnCell(i, iCell) * flux * invAreaCell
+               layerThicknessTend(k, iCell) = layerThicknessTend(k, iCell) + edgeSignOnCell(i, iCell) * flux * invAreaCell
             end do
          end do
       end do
@@ -3323,7 +3330,7 @@ module ocn_time_integration_lts3
          iEdge = edgesOnCell(i, iCell)
          do k = 1, maxLevelEdgeBot(iEdge)
             flux = normalVelocity(k, iEdge) * dvEdge(iEdge) * layerThicknessEdge(k, iEdge)
-            layerThicknessTend(k, iCell) = edgeSignOnCell(i, iCell) * flux * invAreaCell
+            layerThicknessTend(k, iCell) = layerThicknessTend(k, iCell) + edgeSignOnCell(i, iCell) * flux * invAreaCell
          end do
       end do
    end do
@@ -3335,7 +3342,7 @@ module ocn_time_integration_lts3
          iEdge = edgesOnCell(i, iCell)
          do k = 1, maxLevelEdgeBot(iEdge)
             flux = normalVelocity(k, iEdge) * dvEdge(iEdge) * layerThicknessEdge(k, iEdge)
-            layerThicknessTend(k, iCell) = edgeSignOnCell(i, iCell) * flux * invAreaCell
+            layerThicknessTend(k, iCell) = layerThicknessTend(k, iCell) + edgeSignOnCell(i, iCell) * flux * invAreaCell
          end do
       end do
    end do
