@@ -1172,9 +1172,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               !if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
+               if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
                   call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
-               !end if
+               end if
 
             end if
 
@@ -1540,9 +1540,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               !if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
+               if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
                   call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 3)
-               !end if
+               end if
 
             end if
 
@@ -1921,9 +1921,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               !if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
+               if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
                   call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 4)
-               !end if
+               end if
 
             end if
 
@@ -3214,16 +3214,16 @@ module ocn_time_integration_lts3
    type (mpas_pool_type), intent(inout) :: &
       tendPool          !< Input: tendency variables
 
-   integer, pointer :: nEdges
+   integer, pointer :: nEdges, nVertLevels
    integer, dimension(:,:), pointer :: cellsOnEdge, edgeMask, edgesOnCell, edgeSignOnCell
-   real (kind=RKIND), dimension(:), pointer :: dcEdge, ssh, dvEdge, areaCell
+   real (kind=RKIND), dimension(:), pointer :: dcEdge, ssh, dvEdge, areaCell, bottomDepth
    real (kind=RKIND), pointer :: config_self_attraction_and_loading_beta
    integer, dimension(:,:), pointer :: nCellsInLTSHalo, nEdgesInLTSHalo
    integer, dimension(:,:,:), pointer :: cellsInLTSHalo, edgesInLTSHalo
-   real (kind=RKIND), dimension(:,:), pointer :: normalVelocityTend, layerThicknessTend, layerThicknessEdge, normalVelocity, layerThickness
-   integer, dimension(:), pointer :: maxLevelEdgeBot, maxLevelEdgeTop, nEdgesOnCell
+   real (kind=RKIND), dimension(:,:), pointer :: normalVelocityTend, layerThicknessTend, layerThicknessEdge, normalVelocity, layerThickness, zMid, zTop
+   integer, dimension(:), pointer :: maxLevelEdgeBot, maxLevelEdgeTop, nEdgesOnCell, maxLevelCell, nCellsArray
 
-   integer :: iEdge, cell1, cell2, k, ie, iRegion, nRegions, ic, iCell, i
+   integer :: iEdge, cell1, cell2, k, ie, iRegion, nRegions, ic, iCell, i, nCells
    real (kind=RKIND) :: invdcEdge, betaSelfAttrLoad, flux, invAreaCell
 
    call mpas_pool_get_config(ocnConfigs, 'config_self_attraction_and_loading_beta', config_self_attraction_and_loading_beta) 
@@ -3232,6 +3232,8 @@ module ocn_time_integration_lts3
    nRegions = 2
 
    call mpas_pool_get_dimension(meshPool, 'nEdges', nEdges)
+   call mpas_pool_get_dimension(meshPool, 'nCellsArray', nCellsArray)
+   call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
    call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
    call mpas_pool_get_array(meshPool, 'cellsOnEdge', cellsOnEdge)
    call mpas_pool_get_array(meshPool, 'dcEdge', dcEdge)
@@ -3242,6 +3244,8 @@ module ocn_time_integration_lts3
    call mpas_pool_get_array(meshPool, 'nEdgesOnCell', nEdgesOnCell)
    call mpas_pool_get_array(meshPool, 'edgesOnCell', edgesOnCell)
    call mpas_pool_get_array(meshPool, 'edgeSignOnCell', edgeSignOnCell)
+   call mpas_pool_get_array(meshPool, 'bottomDepth', bottomDepth)
+   call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
 
    call mpas_pool_get_array(LTSPool, 'cellsInLTSHalo',cellsInLTSHalo)
    call mpas_pool_get_array(LTSPool, 'nCellsInLTSHalo',nCellsInLTSHalo)
@@ -3252,13 +3256,16 @@ module ocn_time_integration_lts3
    call mpas_pool_get_array(tendPool, 'layerThickness', layerThicknessTend)
 
    call mpas_pool_get_array(diagnosticsPool, 'layerThicknessEdge', layerThicknessEdge)
+   call mpas_pool_get_array(diagnosticsPool, 'zMid', zMid)
+   call mpas_pool_get_array(diagnosticsPool, 'zTop', zTop)
 
    call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevelIn)
    call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, timeLevelIn)
    call mpas_pool_get_array(statePool, 'ssh', ssh, timeLevelIn)
 
-   ! if we call this routine we can actually remove the call to the diagnositcs
-   ! which will make it pretty faster
+   ! inline computation of the diagnostics
+
+   ! layerThicknessEdge
    do iEdge = 1, nEdges
       layerThicknessEdge(:, iEdge) = -1.0e34_RKIND
       cell1 = cellsOnEdge(1,iEdge)
@@ -3267,6 +3274,25 @@ module ocn_time_integration_lts3
          layerThicknessEdge(k,iEdge) = 0.5_RKIND * (layerThickness(k,cell1) + layerThickness(k,cell2))
       end do
    end do
+
+   ! ssh
+   nCells = nCellsArray( size(nCellsArray) )
+   do iCell = 1, nCells
+      k = maxLevelCell(iCell)
+      zMid(k:nVertLevels,iCell) = -bottomDepth(iCell) + 0.5_RKIND*layerThickness(k,iCell)
+      zTop(k:nVertLevels,iCell) = -bottomDepth(iCell) + layerThickness(k,iCell)
+
+      do k = maxLevelCell(iCell)-1, 1, -1
+         zMid(k,iCell) = zMid(k+1,iCell) + 0.5_RKIND*(  layerThickness(k+1,iCell) + layerThickness(k  ,iCell))
+         zTop(k,iCell) = zTop(k+1,iCell) + layerThickness(k  ,iCell)
+      end do
+
+      ssh(iCell) = zTop(1,iCell)
+
+   end do
+
+
+   ! inline computation of the tendencies
 
    ! velocity tends
 
