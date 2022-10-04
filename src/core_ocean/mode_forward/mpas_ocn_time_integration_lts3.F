@@ -1172,9 +1172,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               if (config_LTS_split .and. config_LTS_inline_fast_tends) then
+               !if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
                   call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 1)
-               end if
+               !end if
 
             end if
 
@@ -1540,9 +1540,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               if (config_LTS_split .and. config_LTS_inline_fast_tends) then
+               !if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
                   call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 3)
-               end if
+               !end if
 
             end if
 
@@ -1921,9 +1921,9 @@ module ocn_time_integration_lts3
 
                ! DIAGNOSTICS UPDATE ---
 
-               if (config_LTS_split .and. config_LTS_inline_fast_tends) then
+               !if ( (.not. config_LTS_split) .or. (.not. config_LTS_inline_fast_tends) ) then
                   call ocn_diagnostic_solve(dtFine, statePool, forcingPool, meshPool, diagnosticsPool, scratchPool, tracersPool, 4)
-               end if
+               !end if
 
             end if
 
