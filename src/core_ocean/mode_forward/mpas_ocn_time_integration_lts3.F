@@ -3131,9 +3131,9 @@ module ocn_time_integration_lts3
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   subroutine ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, timeLevelIn, haveFineBig, haveFineSmall, haveCoarse, haveInterface)
+   subroutine ocn_lts_fast_tends(statePool, diagnosticsPool, LTSPool, meshPool, tendPool, timeLevelIn, computeOnFineBig, computeOnFineSmall, computeOnCoarse, computeOnInterface)
 
-   integer, intent(in) :: timeLevelIn, haveFineBig, haveFineSmall, haveCoarse, haveInterface
+   integer, intent(in) :: timeLevelIn, computeOnFineBig, computeOnFineSmall, computeOnCoarse, computeOnInterface
 
    type (mpas_pool_type), intent(in) :: &
       statePool          !< Input: state variables
@@ -3234,7 +3234,7 @@ module ocn_time_integration_lts3
    layerThicknessTend(:, :) = 0.0_RKIND
 
    ! interface
-   if (haveInterface == 1) then
+   if (computeOnInterface == 1) then
       do iRegion = 1, nRegions
          ! velocity tendency
          do ie = 1, nEdgesInLTSHalo(iRegion,2)
@@ -3262,7 +3262,7 @@ module ocn_time_integration_lts3
       end do
    end if
 
-   if (haveFineBig == 1) then
+   if (computeOnFineBig == 1) then
       ! velocity tendency
       do ie = 1, nEdgesInLTSHalo(1,1)
          iEdge = edgesInLTSHalo(1,1,ie)
@@ -3288,7 +3288,7 @@ module ocn_time_integration_lts3
       end do
    end if
 
-   if (haveFineSmall == 1) then
+   if (computeOnFineSmall == 1) then
       ! velocity tendency
       do ie = 1, nEdgesInLTSHalo(1,3)
          iEdge = edgesInLTSHalo(1,3,ie)
@@ -3314,7 +3314,7 @@ module ocn_time_integration_lts3
       end do
    end if
 
-   if (haveCoarse == 1) then
+   if (computeOnCoarse == 1) then
       ! velocity tendency
       do ie = 1, nEdgesInLTSHalo(2,1)
          iEdge = edgesInLTSHalo(2,1,ie)
